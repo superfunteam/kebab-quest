@@ -1,6 +1,6 @@
 # Kebab Quest 🥙
 
-A retro 16-bit arcade tracker for the crew's overseas kebab pilgrimage. Built to be **bulletproof on spotty international wifi**: everything works offline, syncs when it can, and never loses a kebab.
+A retro 16-bit arcade tracker for the pod's overseas kebab pilgrimage. Built to be **bulletproof on spotty international wifi**: everything works offline, syncs when it can, and never loses a kebab.
 
 ## Run it locally
 
@@ -90,9 +90,9 @@ On each phone:
 1. Open the app → tap PRESS START → pick your **name + avatar** → HOW TO PLAY → START.
 2. Tap the **gear icon** (top-left) → **Tweaks panel**.
 3. **Trip code** → one of you types a fresh code (e.g. `BALKAN26`); everyone else types the *same* code. That's the shared backend partition.
-4. (Optional) edit the **Crew roster** if someone's missing or you want different colors.
+4. (Optional) edit the **Pod roster** if someone's missing or you want different colors.
 
-From then on, every `EAT KEBAB` tap on any phone shows up on everyone's HQ / CHAIN / CREW / LOG within ~25 seconds (or instantly when the syncing phone is online).
+From then on, every `EAT KEBAB` tap on any phone shows up on everyone's HQ / CHAIN / POD / LOG within ~25 seconds (or instantly when the syncing phone is online).
 
 ## Project layout
 
@@ -112,16 +112,16 @@ src/
     BootScreen.jsx        # PRESS START
     Onboarding.jsx        # WHO ARE YOU? (name + avatar) → HOW TO PLAY
     LogSheet.jsx          # post-tap sheet — rating, meat/veg, WHO ATE IT? picker
-    BottomNav.jsx         # HQ · CHAIN · STREAK · CREW · LOG
-    TweaksPanel.jsx       # settings drawer (palette, voice, crew, trip code)
+    BottomNav.jsx         # HQ · CHAIN · STREAK · POD · LOG
+    TweaksPanel.jsx       # settings drawer (palette, voice, pod, trip code)
     SyncBadge.jsx         # top-right indicator
     Panel.jsx             # chunky 16-bit panel
   screens/
     HQScreen.jsx          # the giant tap button
     ChainScreen.jsx       # scrollable zigzag activity log
     StreakScreen.jsx      # your trip calendar + freeze mechanic
-    CrewScreen.jsx        # leaderboard
-    LogScreen.jsx         # crew kebab feed
+    CrewScreen.jsx        # the pod leaderboard
+    LogScreen.jsx         # pod kebab feed
 netlify/
   edge-functions/sync.js  # /api/sync — POST { tripCode, kebabs, lastSyncTs }
 public/
@@ -142,7 +142,7 @@ Everything that varies between trips is configurable inside the app via **Tweaks
 - **Scanlines / CRT vignette** — toggle the full retro treatment
 - **Voice tone** — `hype` (LET'S GO, KEBAB KING) or `dry` (No kebab logged today.)
 - **Trip length** — 1–60 days; controls the streak calendar grid
-- **Crew roster** — add/remove players, set their colour and handle
+- **Pod roster** — add/remove players, set their colour and avatar
 - **Trip code** — group identifier for backend sync
 
 Or hand-edit the seed defaults in [`src/lib/data.js`](src/lib/data.js).
