@@ -2,6 +2,8 @@
 
 A retro 16-bit arcade tracker for the pod's overseas kebab pilgrimage. Built to be **bulletproof on spotty international wifi**: everything works offline, syncs when it can, and never loses a kebab.
 
+**Live:** <https://kebab.quest>
+
 ## Run it locally
 
 ```bash
