@@ -9,9 +9,13 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
+        id: '/',
         name: 'Kebab Quest',
         short_name: 'Kebab Quest',
-        description: 'One crew, many kebabs. Retro arcade kebab tracker.',
+        description: 'One pod, many kebabs. A retro 16-bit kebab tracker for the trip.',
+        lang: 'en',
+        dir: 'ltr',
+        categories: ['games', 'lifestyle', 'social'],
         theme_color: '#0f380f',
         background_color: '#05040d',
         display: 'standalone',
@@ -22,10 +26,15 @@ export default defineConfig({
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+        ],
+        screenshots: [
+          { src: '/unfurl.webp', sizes: '1672x941', type: 'image/webp', form_factor: 'wide', label: 'Kebab Quest' }
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,webp,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // Promo / social images — served on demand, never worth precaching for offline.
+        globIgnores: ['kebab.png', 'unfurl.webp'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [

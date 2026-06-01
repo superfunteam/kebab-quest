@@ -3,19 +3,44 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <title>Kebab Quest — One Kebab a Day or Die Trying</title>
+  <meta name="description" content="One pod, many kebabs. A retro 16-bit kebab tracker for the trip — tap to log, keep your streak, beat the pod." />
+
+  <!-- PWA / add to home screen -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#0f380f" />
+  <meta name="application-name" content="Kebab Quest" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Kebab Quest" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="theme-color" content="#0f380f" />
-  <meta name="description" content="One crew, many kebabs. A retro arcade kebab tracker for the trip." />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-  <link rel="manifest" href="/manifest.webmanifest" />
+
+  <!-- Open Graph (link unfurls in iMessage, Slack, Discord, Facebook, WhatsApp…) -->
+  <!-- og:image is root-relative; modern unfurlers resolve it against the page URL.
+       After deploy you can hard-code the absolute https URL for strict crawlers. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Kebab Quest" />
+  <meta property="og:title" content="Kebab Quest — One Kebab a Day or Die Trying" />
+  <meta property="og:description" content="One pod, many kebabs. A retro 16-bit kebab tracker for the trip — tap to log, keep your streak, beat the pod." />
+  <meta property="og:image" content="/unfurl.webp" />
+  <meta property="og:image:type" content="image/webp" />
+  <meta property="og:image:width" content="1672" />
+  <meta property="og:image:height" content="941" />
+  <meta property="og:image:alt" content="Kebab Quest — a pixel-art hero hoisting a kebab over a green 8-bit landscape" />
+
+  <!-- Twitter / X card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Kebab Quest — One Kebab a Day or Die Trying" />
+  <meta name="twitter:description" content="One pod, many kebabs. A retro 16-bit kebab tracker for the trip." />
+  <meta name="twitter:image" content="/unfurl.webp" />
+  <meta name="twitter:image:alt" content="Kebab Quest — a pixel-art hero hoisting a kebab over a green 8-bit landscape" />
+
+  <!-- fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
-  <title>Kebab Quest</title>
 </head>
 <body>
   <div id="root"></div>
