@@ -1,0 +1,23 @@
+{
+  "name": "kebab-quest",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Retro arcade kebab-quest tracker for the crew's overseas trip.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "netlify:dev": "netlify dev"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@netlify/blobs": "^8.1.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.10",
+    "vite-plugin-pwa": "^0.21.1"
+  }
+}
