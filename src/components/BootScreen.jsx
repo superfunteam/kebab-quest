@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { KebabSprite } from '../lib/sprites.jsx';
 import { titleShadow } from '../lib/theme.js';
 
 export function BootScreen({ theme, onStart }) {
@@ -47,7 +46,12 @@ export function BootScreen({ theme, onStart }) {
       ))}
 
       <div style={{ animation: 'bob 1.6s ease-in-out infinite' }}>
-        <KebabSprite scale={9} theme={T} />
+        <img
+          src="/kebab.png"
+          alt="Kebab"
+          draggable={false}
+          style={{ display: 'block', height: 172, width: 'auto', imageRendering: 'auto' }}
+        />
       </div>
 
       <div style={{ marginTop: 34, lineHeight: 1.5 }}>

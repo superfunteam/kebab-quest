@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { KebabSprite, MonoIcon, Avatar } from '../lib/sprites.jsx';
+import { MonoIcon, Avatar } from '../lib/sprites.jsx';
 import { colorOf } from '../lib/theme.js';
 import { Panel } from '../components/Panel.jsx';
 
@@ -111,7 +111,12 @@ export function HQScreen({ theme, voice, crew, groupScore, todayCount, you, curr
           }}
         >
           <div style={{ animation: 'bob 1.7s ease-in-out infinite' }}>
-            <KebabSprite scale={7} theme={T} />
+            <img
+              src="/kebab.png"
+              alt="Kebab"
+              draggable={false}
+              style={{ display: 'block', height: 116, width: 'auto', imageRendering: 'auto' }}
+            />
           </div>
           <div
             style={{

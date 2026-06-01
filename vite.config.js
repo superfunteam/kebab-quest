@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
+      includeAssets: ['favicon.png', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
         id: '/',
         name: 'Kebab Quest',
@@ -28,13 +28,13 @@ export default defineConfig({
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ],
         screenshots: [
-          { src: '/unfurl.webp', sizes: '1672x941', type: 'image/webp', form_factor: 'wide', label: 'Kebab Quest' }
+          { src: '/unfurl.png', sizes: '1200x675', type: 'image/png', form_factor: 'wide', label: 'Kebab Quest' }
         ]
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
-        // Promo / social images — served on demand, never worth precaching for offline.
-        globIgnores: ['kebab.png', 'unfurl.webp'],
+        // Social unfurl image — served on demand to scrapers, not worth precaching.
+        globIgnores: ['unfurl.png'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
