@@ -2,7 +2,7 @@ import React from 'react';
 import { PixelStars, Avatar } from '../lib/sprites.jsx';
 import { colorOf, formatEuro, titleShadow } from '../lib/theme.js';
 
-export function LogScreen({ theme, feed, crew }) {
+export function LogScreen({ theme, feed, crew, onSelect }) {
   const T = theme;
   const cc = (p) => {
     const m = crew.find(c => c.name === p);
@@ -31,6 +31,7 @@ export function LogScreen({ theme, feed, crew }) {
         {feed.map((f) => (
           <div
             key={f.id}
+            onClick={() => onSelect && onSelect(f)}
             style={{
               display: 'flex',
               gap: 11,
@@ -38,6 +39,7 @@ export function LogScreen({ theme, feed, crew }) {
               border: '2px solid ' + T.line,
               boxShadow: `0 4px 0 ${T.bg0}`,
               padding: 11,
+              cursor: onSelect ? 'pointer' : 'default',
             }}
           >
             <Avatar n={f.avatar} size={54} theme={T} borderColor={cc(f.player)} />

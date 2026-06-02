@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { MonoIcon, PixelStars, Avatar } from '../lib/sprites.jsx';
 
-export function LogSheet({ open, theme, city, crew = [], youName, onSave, onClose }) {
+// Used for two flows that share the same form:
+//  - LOG (post-tap): a fresh kebab, fields blank → SAVE KEBAB / SKIP.
+//  - EDIT (tap a row in LOG/CHAIN): an existing kebab, fields pre-filled →
+//    SAVE CHANGES / DELETE / CANCEL.
+export function LogSheet({ open, theme, city, crew = [], youName, editKebab = null, onSave, onClose, onDelete }) {
   const T = theme;
+  const isEdit = !!editKebab;
+
   const [rating, setRating] = useState(0);
   const [shop, setShop] = useState('');
   const [meat, setMeat] = useState('Chicken');
@@ -14,7 +20,18 @@ export function LogSheet({ open, theme, city, crew = [], youName, onSave, onClos
   const [who, setWho] = useState(youName || '');
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    if (editKebab) {
+      setRating(editKebab.rating || 0);
+      setShop(editKebab.shop || '');
+      setMeat(editKebab.meat || 'Chicken');
+      setPrice(editKebab.price ? String(editKebab.price) : '');
+      setNote(editKebab.note || '');
+      setCityField(editKebab.city || '');
+      setCcField(editKebab.cc || '');
+      setPhoto(!!editKebab.photo);
+      setWho(editKebab.player || youName || '');
+    } else {
       setRating(0);
       setShop('');
       setMeat('Chicken');
@@ -26,7 +43,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, onSave, onClos
       setWho(youName || (crew[0] && crew[0].name) || '');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, editKebab && editKebab.id]);
 
   const label = (txt) => (
     <div
@@ -56,12 +73,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, onSave, onClos
   };
 
   const detailFields = () => {
-    const overrides = {};
-    const trimmedCity = cityField.trim();
-    if (trimmedCity) overrides.city = trimmedCity;
-    const trimmedCC = ccField.trim().toUpperCase();
-    if (trimmedCC) overrides.cc = trimmedCC.slice(0, 3);
-    return {
+    const f = {
       player: who,
       rating,
       shop: shop.trim() || 'Mystery Kebab',
@@ -69,14 +81,22 @@ export function LogSheet({ open, theme, city, crew = [], youName, onSave, onClos
       price: parseFloat(price) || 0,
       note: note.trim(),
       photo,
-      ...overrides,
     };
+    if (isEdit) {
+      // In edit mode always carry city/cc so they can be changed (or cleared back).
+      f.city = cityField.trim() || editKebab.city || '';
+      f.cc = (ccField.trim().toUpperCase() || editKebab.cc || '').slice(0, 3);
+    } else {
+      const c = cityField.trim();
+      if (c) f.city = c;
+      const cc = ccField.trim().toUpperCase();
+      if (cc) f.cc = cc.slice(0, 3);
+    }
+    return f;
   };
 
   const save = () => onSave(detailFields());
-  // Skip details but still honour who it was logged for.
-  const skip = () => onSave({ player: who });
-
+  const skip = () => onSave({ player: who }); // keep attribution, drop the extra details
   const forSomeoneElse = who && youName && who !== youName;
 
   return (
@@ -114,13 +134,15 @@ export function LogSheet({ open, theme, city, crew = [], youName, onSave, onClos
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: T.text }}>RATE IT</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: T.text }}>
+            {isEdit ? 'EDIT KEBAB' : 'RATE IT'}
+          </div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 9, color: T.green }}>
-            {(city || '').toUpperCase()}
+            {(cityField || city || '').toUpperCase()}
           </div>
         </div>
         <div style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: T.muted, marginBottom: 20 }}>
-          ALL OPTIONAL — THE TAP ALREADY SCORED.
+          {isEdit ? 'CHANGE ANYTHING, THEN SAVE.' : 'ALL OPTIONAL — THE TAP ALREADY SCORED.'}
         </div>
 
         <div style={{ marginBottom: 20 }}>
@@ -155,33 +177,17 @@ export function LogSheet({ open, theme, city, crew = [], youName, onSave, onClos
 
         <div style={{ marginBottom: 20 }}>
           {label('Where')}
-          <input
-            style={input}
-            placeholder="Kebab shop…"
-            value={shop}
-            onChange={e => setShop(e.target.value)}
-          />
+          <input style={input} placeholder="Kebab shop…" value={shop} onChange={e => setShop(e.target.value)} />
         </div>
 
         <div style={{ marginBottom: 20, display: 'flex', gap: 10 }}>
           <div style={{ flex: 2 }}>
             {label('City')}
-            <input
-              style={input}
-              placeholder={city || 'City…'}
-              value={cityField}
-              onChange={e => setCityField(e.target.value)}
-            />
+            <input style={input} placeholder={city || 'City…'} value={cityField} onChange={e => setCityField(e.target.value)} />
           </div>
           <div style={{ flex: 1 }}>
             {label('CC')}
-            <input
-              style={input}
-              placeholder="HR"
-              maxLength={3}
-              value={ccField}
-              onChange={e => setCcField(e.target.value.toUpperCase())}
-            />
+            <input style={input} placeholder="HR" maxLength={3} value={ccField} onChange={e => setCcField(e.target.value.toUpperCase())} />
           </div>
         </div>
 
@@ -230,9 +236,9 @@ export function LogSheet({ open, theme, city, crew = [], youName, onSave, onClos
           />
         </div>
 
-        {/* WHO ATE IT — log on behalf of any crew member */}
+        {/* WHO ATE IT — attribute / re-attribute to any pod member */}
         <div style={{ marginBottom: 22 }}>
-          {label("Who ate it?")}
+          {label('Who ate it?')}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {crew.map(c => {
               const on = c.name === who;
@@ -253,14 +259,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, onSave, onClos
                   }}
                 >
                   <Avatar n={c.avatar} size={22} theme={T} borderColor={on ? T.gold : T.line} />
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: 14,
-                      fontWeight: 700,
-                      color: on ? T.gold : T.text,
-                    }}
-                  >
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, color: on ? T.gold : T.text }}>
                     {c.name}{isYou ? ' ★' : ''}
                   </span>
                 </button>
@@ -269,7 +268,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, onSave, onClos
           </div>
           {forSomeoneElse && (
             <div style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: T.green, marginTop: 9 }}>
-              ▶ Logging this one for {who}.
+              ▶ {isEdit ? 'This kebab belongs to' : 'Logging this one for'} {who}.
             </div>
           )}
         </div>
@@ -288,23 +287,61 @@ export function LogSheet({ open, theme, city, crew = [], youName, onSave, onClos
             boxShadow: `0 5px 0 ${T.bg0}`,
           }}
         >
-          {forSomeoneElse ? `SAVE FOR ${who}` : 'SAVE KEBAB'}
+          {isEdit ? 'SAVE CHANGES' : (forSomeoneElse ? `SAVE FOR ${who}` : 'SAVE KEBAB')}
         </button>
-        <button
-          onClick={skip}
-          style={{
-            width: '100%',
-            border: 'none',
-            background: 'none',
-            color: T.muted,
-            padding: '16px',
-            fontFamily: 'var(--font-body)',
-            fontSize: 16,
-            cursor: 'pointer',
-          }}
-        >
-          SKIP THE DETAILS
-        </button>
+
+        {isEdit ? (
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+            <button
+              onClick={onDelete}
+              style={{
+                flex: 1,
+                border: '2px solid ' + T.red,
+                background: 'transparent',
+                color: T.red,
+                padding: '13px',
+                fontFamily: 'var(--font-display)',
+                fontSize: 10,
+                cursor: 'pointer',
+                boxShadow: `0 4px 0 ${T.bg0}`,
+              }}
+            >
+              DELETE
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                flex: 1,
+                border: '2px solid ' + T.line,
+                background: 'transparent',
+                color: T.muted,
+                padding: '13px',
+                fontFamily: 'var(--font-display)',
+                fontSize: 10,
+                cursor: 'pointer',
+                boxShadow: `0 4px 0 ${T.bg0}`,
+              }}
+            >
+              CANCEL
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={skip}
+            style={{
+              width: '100%',
+              border: 'none',
+              background: 'none',
+              color: T.muted,
+              padding: '16px',
+              fontFamily: 'var(--font-body)',
+              fontSize: 16,
+              cursor: 'pointer',
+            }}
+          >
+            SKIP THE DETAILS
+          </button>
+        )}
       </div>
     </div>
   );

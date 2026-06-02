@@ -6,7 +6,7 @@ import { colorOf, titleShadow } from '../lib/theme.js';
 // locked levels ahead of you on a video-game world map.
 const LOCKED_AHEAD = 3;
 
-export function ChainScreen({ theme, voice, feed, crew }) {
+export function ChainScreen({ theme, voice, feed, crew, onSelect }) {
   const T = theme;
   const V = voice;
   const pColor = (p) => {
@@ -155,6 +155,7 @@ export function ChainScreen({ theme, voice, feed, crew }) {
           return (
             <div
               key={f.id || i}
+              onClick={() => onSelect && onSelect(f)}
               style={{
                 position: 'absolute',
                 left: xOfRow(r) + '%',
@@ -162,6 +163,7 @@ export function ChainScreen({ theme, voice, feed, crew }) {
                 width: 54,
                 height: 54,
                 transform: 'translate(-50%,-50%)',
+                cursor: onSelect ? 'pointer' : 'default',
               }}
             >
               <div

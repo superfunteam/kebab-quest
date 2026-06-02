@@ -88,24 +88,30 @@ export function useGameStore() {
   const backoffRef = useRef(1000);
   const syncTimerRef = useRef(null);
   const inFlightRef = useRef(null);
+  // Always-current trip code, so an in-flight sync can detect a reset mid-request.
+  const tripCodeRef = useRef(tripCode);
+  useEffect(() => { tripCodeRef.current = tripCode; }, [tripCode]);
 
   const sync = useCallback(async () => {
     if (inFlightRef.current) return inFlightRef.current;
     if (!navigator.onLine) { setSyncError('offline'); return; }
     setSyncing(true);
     setSyncError(null);
+    const tc = tripCode;
     const pending = feed.filter(k => k.pending).map(sanitizeForSync);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15_000);
     const p = (async () => {
       try {
         const result = await syncOnce({
-          tripCode,
+          tripCode: tc,
           kebabs: pending,
           lastSyncTs,
           signal: controller.signal,
         });
         clearTimeout(timer);
+        // If the trip changed during the request (e.g. a reset), drop stale results.
+        if (tripCodeRef.current !== tc) return;
         const incoming = Array.isArray(result?.kebabs) ? result.kebabs : [];
         // Mark our pushed kebabs as no-longer-pending; merge with anything new.
         setFeed(curr => {
@@ -158,6 +164,10 @@ export function useGameStore() {
   }, [feed, online, sync]);
 
   // ── derived values
+  // Tombstoned (deleted) kebabs stay in the raw feed so the deletion can sync,
+  // but are hidden from every count, screen and streak.
+  const visibleFeed = useMemo(() => feed.filter(k => !k.deleted), [feed]);
+
   const youStreak = useMemo(() => {
     let cur = 0;
     for (let i = days.length - 1; i >= 0; i--) {
@@ -170,7 +180,7 @@ export function useGameStore() {
     // Recompute each player's kebab count, streak and avatar from the live feed.
     const byPlayer = new Map();
     const avatarByPlayer = new Map(); // latest avatar seen per player (feed is newest-first)
-    for (const k of feed) {
+    for (const k of visibleFeed) {
       const p = (k.player || '').toUpperCase();
       byPlayer.set(p, (byPlayer.get(p) || 0) + 1);
       if (k.avatar != null && !avatarByPlayer.has(p)) avatarByPlayer.set(p, k.avatar);
@@ -182,7 +192,7 @@ export function useGameStore() {
         ...c,
         you: isYou,
         kebabs: liveKebabs != null ? liveKebabs : (c.kebabs || 0),
-        streak: isYou ? youStreak : streakFromFeed(feed, c.name),
+        streak: isYou ? youStreak : streakFromFeed(visibleFeed, c.name),
         avatar: isYou ? playerAvatar : (avatarByPlayer.get(c.name) ?? c.avatar ?? 1),
       };
     });
@@ -190,14 +200,14 @@ export function useGameStore() {
     const maxStreak = Math.max(0, ...mapped.map(c => c.streak));
     const kingName = maxStreak > 0 ? (mapped.find(c => c.streak === maxStreak) || {}).name : null;
     return mapped.map(c => ({ ...c, king: c.name === kingName }));
-  }, [crew, feed, playerName, playerAvatar, youStreak]);
+  }, [crew, visibleFeed, playerName, playerAvatar, youStreak]);
 
   const groupScore = crewView.reduce((s, c) => s + c.kebabs, 0);
 
   const todayCount = useMemo(() => {
     const startOfDay = startOfLocalDay(Date.now());
-    return feed.filter(f => (f.ts || 0) >= startOfDay).length;
-  }, [feed]);
+    return visibleFeed.filter(f => (f.ts || 0) >= startOfDay).length;
+  }, [visibleFeed]);
 
   const settings_ = settings;
   const you = crewView.find(c => c.name === playerName) || crewView.find(c => c.you) || crewView[0];
@@ -206,7 +216,7 @@ export function useGameStore() {
   const logKebab = useCallback((partial) => {
     const now = Date.now();
     const time = new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    const last = feed[0];
+    const last = visibleFeed[0];
     const city = partial?.city || last?.city || 'Berlin';
     const cc = partial?.cc || last?.cc || 'DE';
     const kebab = {
@@ -232,7 +242,7 @@ export function useGameStore() {
       return n;
     });
     return kebab;
-  }, [feed, playerName, playerAvatar]);
+  }, [visibleFeed, playerName, playerAvatar]);
 
   // Apply log-sheet details and (optionally) re-attribute the kebab to another
   // player ("logged it for Matt"). If it moves away from you, reverse the
@@ -263,6 +273,34 @@ export function useGameStore() {
       });
     }
   }, [crew, playerName]);
+
+  // Edit any logged kebab. `updatedAt` + pending make the change re-sync, and the
+  // server upserts by id so the edit reaches the rest of the pod.
+  const editKebab = useCallback((id, fields) => {
+    const newPlayer = fields && fields.player ? fields.player.toUpperCase() : null;
+    setFeed(prev => prev.map(k => {
+      if (k.id !== id) return k;
+      const next = { ...k, updatedAt: Date.now(), pending: true };
+      for (const key of ['rating', 'shop', 'meat', 'price', 'note', 'photo', 'city', 'cc']) {
+        if (fields[key] !== undefined) next[key] = fields[key];
+      }
+      // Only touch the face if the kebab is being re-attributed to a different player.
+      if (newPlayer && newPlayer !== k.player) {
+        next.player = newPlayer;
+        next.avatar = newPlayer === playerName
+          ? playerAvatar
+          : ((crew.find(c => c.name === newPlayer) || {}).avatar ?? next.avatar);
+      }
+      return next;
+    }));
+  }, [crew, playerName, playerAvatar]);
+
+  // Soft-delete (tombstone) so the removal syncs and stays gone across devices.
+  const deleteKebab = useCallback((id) => {
+    setFeed(prev => prev.map(k => k.id === id
+      ? { ...k, deleted: true, updatedAt: Date.now(), pending: true }
+      : k));
+  }, []);
 
   const useFreeze = useCallback(() => {
     setDays(prev => {
@@ -306,6 +344,9 @@ export function useGameStore() {
     });
   }, []);
 
+  // A true wipe. The key move is a fresh trip code: the old code's events stay
+  // on the server (untouched), but this device starts on a brand-new, empty
+  // partition — so the heartbeat sync can't pull the old chain/scores back.
   const resetGame = useCallback(() => {
     setCrew(DEFAULT_CREW.map(c => ({ ...c })));
     setFeed([]);
@@ -313,19 +354,20 @@ export function useGameStore() {
     setFreezes(FREEZES);
     setTripDays(TRIP_DAYS);
     setLastSyncTs(0);
+    setTripCode(generateTripCode());
   }, []);
 
   const updateCrew = useCallback((nextCrew) => setCrew(nextCrew), []);
 
   return {
     // state
-    tripCode, settings, playerName, playerAvatar, feed, crew: crewView, days, freezes, tripDays,
+    tripCode, settings, playerName, playerAvatar, feed: visibleFeed, crew: crewView, days, freezes, tripDays,
     phase, online, syncing, syncError, eatConfirmed,
     // derived
     groupScore, todayCount, you, youStreak,
     // actions
     setTripCode, setTweak, claimIdentity, updateCrew, setTripDays,
-    logKebab, saveKebab, useFreeze, sync, confirmEat,
+    logKebab, saveKebab, editKebab, deleteKebab, useFreeze, sync, confirmEat,
     markBooted, finishOnboard, showBoot, showOnboard, resetGame,
   };
 }

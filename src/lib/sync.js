@@ -28,25 +28,27 @@ export async function syncOnce({ tripCode, kebabs, lastSyncTs, signal }) {
   return await res.json();
 }
 
-// Merge two arrays of immutable kebab events. Dedupe by id; newer wins
-// (although since events are immutable, "newer" rarely matters).
+// Merge two arrays of kebab events. Dedupe by id; the higher "version" wins, where
+// version = updatedAt (set on edit/delete) falling back to ts. This lets edits and
+// deletions (tombstones) override the server's older copy.
 export function mergeFeed(local, incoming) {
+  const ver = (k) => (k && (k.updatedAt || k.ts)) || 0;
   const map = new Map();
   for (const k of local) map.set(k.id, k);
   for (const k of incoming) {
     const existing = map.get(k.id);
-    if (!existing || (k.ts || 0) >= (existing.ts || 0)) {
-      // Keep "pending" flag local-only — don't let server overwrite it.
+    if (!existing || ver(k) >= ver(existing)) {
       const merged = { ...k };
-      if (existing && existing.pending && existing.ts === merged.ts) {
-        merged.pending = existing.pending;
+      // Preserve a local-only, not-yet-acked pending edit when versions match.
+      if (existing && existing.pending && ver(existing) === ver(k)) {
+        merged.pending = true;
       } else {
         delete merged.pending;
       }
       map.set(k.id, merged);
     }
   }
-  // Sort newest first by ts.
+  // Sort newest first by log time.
   return Array.from(map.values()).sort((a, b) => (b.ts || 0) - (a.ts || 0));
 }
 

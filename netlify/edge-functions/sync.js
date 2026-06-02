@@ -49,20 +49,28 @@ export default async (request, context) => {
   const store = getStore({ name: 'kebab-quest', consistency: 'strong' });
   const key = `trip:${tripCode}`;
 
-  // Read existing log, merge, write back. If the blob doesn't exist, start fresh.
+  // Read existing log, upsert, write back. If the blob doesn't exist, start fresh.
   const existing = (await store.get(key, { type: 'json' })) || [];
-  const seen = new Set(existing.map(k => k.id));
-  const fresh = clean.filter(k => !seen.has(k.id));
+  const byId = new Map(existing.map(k => [k.id, k]));
+  const ver = (k) => (k && (k.updatedAt || k.ts)) || 0;
 
-  let updated = existing;
-  if (fresh.length > 0) {
-    // Stamp anything the server hasn't seen with a serverTs — used as the
-    // monotonic clock for lastSyncTs comparisons. Client ts is preserved as `ts`.
-    const now = Date.now();
-    const stamped = fresh.map((k, i) => ({ ...k, serverTs: now + i }));
-    updated = [...existing, ...stamped];
+  const now = Date.now();
+  let bump = 0;
+  let changed = false;
+  for (const k of clean) {
+    const prev = byId.get(k.id);
+    // New ids are inserted; existing ids are replaced only when the incoming
+    // version is newer (edits / deletes carry a higher updatedAt). serverTs is the
+    // monotonic clock used for lastSyncTs comparisons; client ts is preserved.
+    if (!prev || ver(k) > ver(prev)) {
+      byId.set(k.id, { ...k, serverTs: now + (bump++) });
+      changed = true;
+    }
+  }
 
-    // Trim if a single trip ever exceeded a wild number of kebabs.
+  // Map preserves insertion order, so existing entries keep their place.
+  let updated = Array.from(byId.values());
+  if (changed) {
     if (updated.length > MAX_HISTORY) {
       updated = updated.slice(updated.length - MAX_HISTORY);
     }
@@ -117,6 +125,8 @@ function sanitizeKebab(k) {
     photo: !!k.photo,
     when: clip(k.when, 40),
     ts,
+    updatedAt: Number(k.updatedAt) > 0 ? Number(k.updatedAt) : undefined,
+    deleted: k.deleted ? true : undefined,
   };
 }
 

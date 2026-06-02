@@ -30,6 +30,7 @@ export default function App() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [tweaksOpen, setTweaksOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [editingKebab, setEditingKebab] = useState(null);
   const pendingKebabRef = useRef(null);
   const comboRef = useRef({ n: 0, t: 0 });
 
@@ -80,13 +81,30 @@ export default function App() {
     setTimeout(() => setSheetOpen(true), 360);
   };
 
-  const handleSave = (details) => {
-    const id = pendingKebabRef.current;
-    if (details && id) {
-      store.saveKebab(id, details);
+  // The sheet serves both the post-tap log flow and tap-a-row editing.
+  const handleSheetSave = (details) => {
+    if (editingKebab) {
+      if (details) store.editKebab(editingKebab.id, details);
+      setEditingKebab(null);
+      return;
     }
+    const id = pendingKebabRef.current;
+    if (details && id) store.saveKebab(id, details);
     pendingKebabRef.current = null;
     setSheetOpen(false);
+  };
+
+  const handleSheetClose = () => {
+    if (editingKebab) { setEditingKebab(null); return; }
+    pendingKebabRef.current = null;
+    setSheetOpen(false);
+  };
+
+  const handleDelete = () => {
+    if (editingKebab && confirm('Delete this kebab for good?')) {
+      store.deleteKebab(editingKebab.id);
+      setEditingKebab(null);
+    }
   };
 
   // ── visibility-driven sync. When the app comes back to foreground (e.g. user
@@ -186,10 +204,10 @@ export default function App() {
                   justScored={justScored}
                 />
               )}
-              {tab === 'chain'  && <ChainScreen  theme={T} voice={V} feed={store.feed} crew={store.crew} />}
+              {tab === 'chain'  && <ChainScreen  theme={T} voice={V} feed={store.feed} crew={store.crew} onSelect={setEditingKebab} />}
               {tab === 'streak' && <StreakScreen theme={T} voice={V} days={store.days} tripDays={store.tripDays} freezes={store.freezes} onFreeze={store.useFreeze} />}
               {tab === 'crew'   && <CrewScreen   theme={T} crew={store.crew} feed={store.feed} groupScore={store.groupScore} todayCount={store.todayCount} />}
-              {tab === 'log'    && <LogScreen    theme={T} feed={store.feed} crew={store.crew} />}
+              {tab === 'log'    && <LogScreen    theme={T} feed={store.feed} crew={store.crew} onSelect={setEditingKebab} />}
             </div>
           </div>
         )}
@@ -250,13 +268,15 @@ export default function App() {
         ))}
 
         <LogSheet
-          open={sheetOpen}
+          open={sheetOpen || !!editingKebab}
           theme={T}
-          city={currentCity}
+          city={editingKebab ? (editingKebab.city || currentCity) : currentCity}
           crew={store.crew}
           youName={store.playerName}
-          onSave={handleSave}
-          onClose={() => handleSave(null)}
+          editKebab={editingKebab}
+          onSave={handleSheetSave}
+          onClose={handleSheetClose}
+          onDelete={handleDelete}
         />
 
         <ConfirmEatModal
@@ -291,7 +311,7 @@ export default function App() {
           onSync={store.sync}
           onShowBoot={() => { setTweaksOpen(false); store.showBoot(); }}
           onShowOnboard={() => { setTweaksOpen(false); store.showOnboard(); }}
-          onReset={() => { if (confirm('Wipe all kebabs and start the trip fresh? (Your name & avatar stay.)')) store.resetGame(); }}
+          onReset={() => { if (confirm('Wipe everything — chain, streaks, scores — and start a brand-new trip? You get a fresh trip code to share. (Your name & avatar stay.)')) store.resetGame(); }}
           onClose={() => setTweaksOpen(false)}
         />
       )}
