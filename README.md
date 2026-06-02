@@ -143,17 +143,24 @@ public/
   unfurl.png              # social-share card (og:image, 1200×675; not precached)
 ```
 
-### Regenerating the icons / images
+### Performance / regenerating assets
 
-Icons and the social card are derived from the source art with ImageMagick:
+Built to be light on spotty overseas wifi — the offline precache is ~**360 KB**
+(was ~680 KB). Everything is same-origin: **fonts are self-hosted + subset**
+(no Google CDN round-trip), and all raster art is **indexed PNG** (8-bit palette).
 
 ```bash
-# PWA icons + favicon from the square icon art
-magick favicon-src.png -resize 512x512 -colors 256 PNG8:public/icons/icon-512.png
-magick favicon-src.png -resize 192x192 -colors 256 PNG8:public/icons/icon-192.png
-magick favicon-src.png -resize 512x512 -colors 256 PNG8:public/favicon.png
-# Social unfurl card (keep it small: 1200w, 32-colour indexed PNG)
-magick unfurl-src.png  -resize 1200x +dither -colors 32 PNG8:public/unfurl.png
+# Raster art → small indexed PNGs (ImageMagick)
+magick kebab-src.png  -resize x480 -colors 96  PNG8:public/kebab.png          # hero ~38 KB
+magick favicon-src.png            -colors 128 PNG8:public/icons/icon-512.png  # install icon
+magick favicon-src.png -resize 192x192 -colors 128 PNG8:public/icons/icon-192.png
+magick favicon-src.png -resize 128x128 -colors 64  PNG8:public/favicon.png     # tab favicon ~5 KB
+for f in public/avatars/Icon*.png; do magick "$f" -colors 64 PNG8:"$f"; done   # ~0.4 KB each
+magick unfurl-src.png -resize 1200x +dither -colors 32 PNG8:public/unfurl.png   # social card (not precached)
+
+# Fonts → self-hosted, subset to used glyphs (fonttools / pyftsubset)
+pyftsubset SRC.woff2 --unicodes="U+0020-00FF,U+2013-2014,U+2018-201F,U+2022,U+2026,U+2039-203A,U+20AC,U+25B2,U+25B6,U+25C0,U+2605,U+2715" \
+  --flavor=woff2 --layout-features='*' --output-file=public/fonts/NAME.woff2
 ```
 
 ## Customizing for *your* trip
