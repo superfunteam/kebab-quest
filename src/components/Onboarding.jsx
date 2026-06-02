@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
 import { MonoIcon, Avatar, AVATAR_COUNT } from '../lib/sprites.jsx';
 
+// Fisher-Yates — so the name list looks random, not a fixed roster order.
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 // Two-step onboarding:
 //  1) WHO ARE YOU? — claim a roster name + pick a pixel avatar (no password).
 //  2) HOW TO PLAY  — the quick rules, then START QUEST.
@@ -10,7 +20,8 @@ export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onD
   const [avatar, setAvatar] = useState(playerAvatar || 1);
   const [step, setStep] = useState(playerName ? 'how' : 'id');
 
-  const roster = (crew && crew.length ? crew : []).map(c => c.name);
+  // Shuffled once per visit to the onboarding screen.
+  const [roster] = useState(() => shuffle((crew && crew.length ? crew : []).map(c => c.name)));
 
   const next = () => {
     if (!name) return;

@@ -21,10 +21,13 @@ const TWEAK_DEFAULTS = {
 
 function loadInitial() {
   const settings = { ...TWEAK_DEFAULTS, ...(read('settings') || {}) };
-  const playerName = read('playerName') || '';
+  // One-time roster rename: Rachel → Asia (keeps each device in sync without a reset).
+  let playerName = read('playerName') || '';
+  if (playerName === 'RACHEL') playerName = 'ASIA';
   const playerAvatar = read('playerAvatar', 1);
   const feed = read('feed') || [];
-  const crew = read('crew') || DEFAULT_CREW.map(c => ({ ...c }));
+  let crew = read('crew') || DEFAULT_CREW.map(c => ({ ...c }));
+  crew = crew.map(c => (c.name === 'RACHEL' ? { ...c, name: 'ASIA' } : c));
   const frozenDays = read('frozenDays', []);
   const freezes = read('freezes', FREEZES);
   const lastSyncTs = read('lastSyncTs', 0);

@@ -7,7 +7,7 @@
 
 const ROSTER = [
   'Clark', 'Angie', 'Matt', 'Sophia', 'David', 'Kiira', 'Brandon',
-  'Melissa', 'Claire', 'Mike', 'Marion', 'Rachel', 'Kathy', 'Dino',
+  'Melissa', 'Claire', 'Mike', 'Marion', 'Asia', 'Kathy', 'Dino',
 ];
 const COLORS = ['gold', 'red', 'blue', 'green', 'accent'];
 
