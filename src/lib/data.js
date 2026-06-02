@@ -47,7 +47,8 @@ export function localDayNum(ts) {
 // local days (through today, or yesterday if they haven't eaten yet today) on which
 // they have >=1 kebab — OR a frozen/cheat day. Because it reads the feed, a kebab
 // logged FOR someone by a friend counts toward THAT person's streak, on every device.
-// `frozenDays` (epoch-day numbers) only applies to "you"; others have no local freezes.
+// `frozenDays` (epoch-day numbers) are that player's synced cheat days, so a freeze
+// protects their streak everywhere — pass the right player's days from the synced map.
 export function streakFromFeed(feed, name, frozenDays) {
   const frozen = frozenDays instanceof Set ? frozenDays : new Set(frozenDays || []);
   const ate = new Set();

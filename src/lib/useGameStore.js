@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { read, write, uuid } from './storage.js';
-import { syncOnce, mergeFeed, mergeClaims, sanitizeForSync, nextBackoff, resetTripServer } from './sync.js';
+import { syncOnce, mergeFeed, mergeClaims, mergeFrozen, sanitizeForSync, nextBackoff, resetTripServer } from './sync.js';
 import { DEFAULT_CREW, TRIP_CODE, TRIP_DAYS, FREEZES, streakFromFeed, buildDaysFromFeed, computeStreak, localDayNum } from './data.js';
 
 // Defaults match the design's final state: Game Boy palette, clean LCD (no
@@ -29,8 +29,15 @@ function loadInitial() {
   const feed = read('feed') || [];
   let crew = read('crew') || DEFAULT_CREW.map(c => ({ ...c }));
   crew = crew.map(c => (c.name === 'RACHEL' ? { ...c, name: 'ASIA' } : c));
-  const frozenDays = read('frozenDays', []);
-  const freezes = read('freezes', FREEZES);
+  // Streak freezes are now a synced, per-player map { NAME: [epochDayNum] } so a
+  // cheat day protects a streak on every device. Migrate any legacy you-only
+  // frozenDays into our own slot on first load after the upgrade.
+  let frozen = read('frozen') || null;
+  if (!frozen) {
+    frozen = {};
+    const legacy = read('frozenDays', []);
+    if (playerName && Array.isArray(legacy) && legacy.length) frozen[playerName] = [...legacy];
+  }
   const lastSyncTs = read('lastSyncTs', 0);
   const phase = (() => {
     const booted = read('booted', false);
@@ -45,7 +52,7 @@ function loadInitial() {
   let myClaim = read('myClaim', null);
   if (!myClaim && playerName) myClaim = { name: playerName, avatar: playerAvatar, ts: 0 };
   if (myClaim && !claims[myClaim.name]) claims[myClaim.name] = myClaim;
-  return { settings, playerName, playerAvatar, feed, crew, frozenDays, freezes, lastSyncTs, phase, eatConfirmed, claims, myClaim };
+  return { settings, playerName, playerAvatar, feed, crew, frozen, lastSyncTs, phase, eatConfirmed, claims, myClaim };
 }
 
 export function useGameStore() {
@@ -57,8 +64,7 @@ export function useGameStore() {
   const [playerAvatar, setPlayerAvatar] = useState(initial.playerAvatar);
   const [feed, setFeed] = useState(initial.feed);
   const [crew, setCrew] = useState(initial.crew);
-  const [frozenDays, setFrozenDays] = useState(initial.frozenDays);
-  const [freezes, setFreezes] = useState(initial.freezes);
+  const [frozen, setFrozen] = useState(initial.frozen); // { NAME: [epochDayNum] }, synced
   const tripDays = TRIP_DAYS; // fixed trip length (Jun 4–21)
   const [lastSyncTs, setLastSyncTs] = useState(initial.lastSyncTs);
   const [phase, setPhase] = useState(initial.phase);
@@ -76,8 +82,7 @@ export function useGameStore() {
   useEffect(() => { write('playerAvatar', playerAvatar); }, [playerAvatar]);
   useEffect(() => { write('feed', feed); }, [feed]);
   useEffect(() => { write('crew', crew); }, [crew]);
-  useEffect(() => { write('frozenDays', frozenDays); }, [frozenDays]);
-  useEffect(() => { write('freezes', freezes); }, [freezes]);
+  useEffect(() => { write('frozen', frozen); }, [frozen]);
   useEffect(() => { write('lastSyncTs', lastSyncTs); }, [lastSyncTs]);
   useEffect(() => { write('eatConfirmed', eatConfirmed); }, [eatConfirmed]);
   useEffect(() => { write('claims', claims); }, [claims]);
@@ -105,6 +110,9 @@ export function useGameStore() {
   // Latest identity claim, so every heartbeat re-publishes who this device is.
   const myClaimRef = useRef(myClaim);
   useEffect(() => { myClaimRef.current = myClaim; }, [myClaim]);
+  // Our own cheat days, re-published each sync so the pod keeps them in step.
+  const myFreezeRef = useRef({ player: playerName, days: frozen[playerName] || [] });
+  useEffect(() => { myFreezeRef.current = { player: playerName, days: frozen[playerName] || [] }; }, [frozen, playerName]);
 
   const sync = useCallback(async () => {
     if (inFlightRef.current) return inFlightRef.current;
@@ -122,11 +130,16 @@ export function useGameStore() {
           kebabs: pending,
           lastSyncTs,
           claim: myClaimRef.current,
+          frozen: myFreezeRef.current,
           signal: controller.signal,
         });
         clearTimeout(timer);
         // If the trip changed during the request (e.g. a reset), drop stale results.
         if (tripCodeRef.current !== tc) return;
+        // Fold in the pod's streak freezes (cheat days for everyone).
+        if (result?.frozen && typeof result.frozen === 'object') {
+          setFrozen(curr => mergeFrozen(curr, result.frozen));
+        }
         // Fold in the pod's identity claims (names + exclusive avatars).
         if (result?.claims && typeof result.claims === 'object') {
           setClaims(curr => mergeClaims(curr, result.claims));
@@ -191,16 +204,29 @@ export function useGameStore() {
     }
   }, [myClaim, online, sync]);
 
+  // Push a freeze promptly too, so a cheat day reaches the pod right away.
+  useEffect(() => {
+    if (online && (frozen[playerName] || []).length) {
+      const t = setTimeout(() => sync(), 400);
+      return () => clearTimeout(t);
+    }
+  }, [frozen, playerName, online, sync]);
+
   // ── derived values
   // Tombstoned (deleted) kebabs stay in the raw feed so the deletion can sync,
   // but are hidden from every count, screen and streak.
   const visibleFeed = useMemo(() => feed.filter(k => !k.deleted), [feed]);
 
+  // Your own cheat days + how many freezes you have left (both now synced, so
+  // they read the same on every device).
+  const myFrozen = useMemo(() => frozen[playerName] || [], [frozen, playerName]);
+  const freezes = Math.max(0, FREEZES - myFrozen.length);
+
   // Your personal calendar + streak come from the feed now, so a kebab a friend
   // logs for you counts on YOUR streak too (and one you log for them counts on theirs).
   const days = useMemo(
-    () => buildDaysFromFeed(visibleFeed, playerName, frozenDays, tripDays),
-    [visibleFeed, playerName, frozenDays, tripDays]
+    () => buildDaysFromFeed(visibleFeed, playerName, myFrozen, tripDays),
+    [visibleFeed, playerName, myFrozen, tripDays]
   );
   const youStreak = useMemo(() => computeStreak(days).cur, [days]);
 
@@ -222,7 +248,9 @@ export function useGameStore() {
         you: isYou,
         claimed: !!claim,
         kebabs: liveKebabs != null ? liveKebabs : (c.kebabs || 0),
-        streak: isYou ? youStreak : streakFromFeed(visibleFeed, c.name),
+        // Everyone's streak now folds in their synced freezes, so the leaderboard
+        // and Streak King read the same on every device.
+        streak: isYou ? youStreak : streakFromFeed(visibleFeed, c.name, frozen[c.name] || []),
         // Prefer a synced claim avatar, then the latest one seen in the feed,
         // then the roster default — so faces are right even before any kebabs.
         avatar: isYou ? playerAvatar : (claim?.avatar ?? avatarByPlayer.get(c.name) ?? c.avatar ?? 1),
@@ -232,7 +260,7 @@ export function useGameStore() {
     const maxStreak = Math.max(0, ...mapped.map(c => c.streak));
     const kingName = maxStreak > 0 ? (mapped.find(c => c.streak === maxStreak) || {}).name : null;
     return mapped.map(c => ({ ...c, king: c.name === kingName }));
-  }, [crew, visibleFeed, playerName, playerAvatar, youStreak, claims]);
+  }, [crew, visibleFeed, playerName, playerAvatar, youStreak, claims, frozen]);
 
   const groupScore = crewView.reduce((s, c) => s + c.kebabs, 0);
 
@@ -322,11 +350,18 @@ export function useGameStore() {
       : k));
   }, []);
 
+  // Burn a freeze on today for the current player. Adds the day to our synced
+  // map (remaining count is derived, FREEZES − days used). No-op if we're out or
+  // today's already frozen.
   const useFreeze = useCallback(() => {
+    if (!playerName) return;
     const today = localDayNum(Date.now());
-    setFrozenDays(prev => prev.includes(today) ? prev : [...prev, today]);
-    setFreezes(f => Math.max(0, f - 1));
-  }, []);
+    setFrozen(prev => {
+      const mine = prev[playerName] || [];
+      if (mine.includes(today) || mine.length >= FREEZES) return prev;
+      return { ...prev, [playerName]: [...mine, today] };
+    });
+  }, [playerName]);
 
   const setTweak = useCallback((key, value) => {
     setSettingsRaw(s => ({ ...s, [key]: value }));
@@ -374,8 +409,7 @@ export function useGameStore() {
     resetTripServer(tripCode).catch(() => {});
     setCrew(DEFAULT_CREW.map(c => ({ ...c })));
     setFeed([]);
-    setFrozenDays([]);
-    setFreezes(FREEZES);
+    setFrozen({});
     setLastSyncTs(0);
   }, [tripCode]);
 

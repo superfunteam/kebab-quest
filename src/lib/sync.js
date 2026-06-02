@@ -8,11 +8,12 @@
 
 const SYNC_URL = '/api/sync';
 
-export async function syncOnce({ tripCode, kebabs, lastSyncTs, claim, signal }) {
+export async function syncOnce({ tripCode, kebabs, lastSyncTs, claim, frozen, signal }) {
   if (!tripCode) throw new Error('no trip code');
 
   const body = { tripCode, kebabs: kebabs || [], lastSyncTs: lastSyncTs || 0 };
   if (claim) body.claim = claim; // ride-along identity claim (name + avatar)
+  if (frozen && Array.isArray(frozen.days) && frozen.days.length) body.frozen = frozen; // streak cheat days
 
   const res = await fetch(SYNC_URL, {
     method: 'POST',
@@ -81,6 +82,19 @@ export function mergeClaims(local, incoming) {
     const l = local[name];
     if (!l) continue;
     if (!out[name] || (l.ts || 0) > (out[name].ts || 0)) out[name] = l;
+  }
+  return out;
+}
+
+// Merge two { NAME: [dayNum] } freeze maps by unioning each player's days —
+// freezes are permanent, so a union can never lose a cheat day either side has.
+export function mergeFrozen(local, incoming) {
+  const out = {};
+  const names = new Set([...Object.keys(local || {}), ...Object.keys(incoming || {})]);
+  for (const n of names) {
+    const a = Array.isArray((local || {})[n]) ? local[n] : [];
+    const b = Array.isArray((incoming || {})[n]) ? incoming[n] : [];
+    out[n] = Array.from(new Set([...a, ...b])).sort((x, y) => x - y);
   }
   return out;
 }
