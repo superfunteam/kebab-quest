@@ -178,6 +178,7 @@ export default function App() {
           <Onboarding
             theme={T}
             crew={store.crew}
+            claims={store.claims}
             playerName={store.playerName}
             playerAvatar={store.playerAvatar}
             onClaim={store.claimIdentity}

@@ -48,11 +48,14 @@ export default async (request, context) => {
 
   const store = getStore({ name: 'kebab-quest', consistency: 'strong' });
   const key = `trip:${tripCode}`;
+  const claimsKey = `claims:${tripCode}`;
 
-  // Clark-only reset: wipe the shared log for the whole pod.
+  // Clark-only reset: wipe the shared kebab log for the whole pod. Identities
+  // (claims) survive — the reset confirm promises "your name & avatar stay".
   if (body?.reset === true) {
     await store.setJSON(key, []);
-    return json({ kebabs: [], ts: 0, total: 0, ack: [] });
+    const recs = (await store.get(claimsKey, { type: 'json' }).catch(() => null)) || [];
+    return json({ kebabs: [], ts: 0, total: 0, ack: [], claims: resolveClaims(recs) });
   }
 
   const ver = (k) => (k && (k.updatedAt || k.ts)) || 0;
@@ -107,6 +110,57 @@ export default async (request, context) => {
   }
   if (!wrote) return json({ error: 'write_conflict' }, 503); // client keeps it queued
 
+  // ── Claims: a tiny side-log mapping each player to the name + avatar they
+  // claimed, so identities sync across devices before anyone logs a kebab and
+  // avatars stay exclusive. One record per name (latest ts wins); avatar
+  // ownership goes to the earliest claimer (see resolveClaims).
+  const incomingClaim = sanitizeClaim(body?.claim);
+  let claimsMap = {};
+  {
+    let wroteC = false;
+    for (let attempt = 0; attempt < 6 && !wroteC; attempt++) {
+      let recs = [];
+      let etag = null;
+      let cas = true;
+      try {
+        const meta = await store.getWithMetadata(claimsKey, { type: 'json' });
+        recs = (meta && meta.data) || [];
+        etag = (meta && meta.etag) || null;
+      } catch (_) {
+        cas = false;
+        recs = (await store.get(claimsKey, { type: 'json' })) || [];
+      }
+      if (!Array.isArray(recs)) recs = [];
+
+      let changed = false;
+      if (incomingClaim) {
+        const prev = recs.find(r => r.name === incomingClaim.name);
+        // Strictly newer ts → update. Equal/older (e.g. steady heartbeat re-sends,
+        // or a ts:0 seed for an already-known player) → no write, just echo state.
+        if (!prev || incomingClaim.ts > (prev.ts || 0)) {
+          recs = recs.filter(r => r.name !== incomingClaim.name);
+          recs.push(incomingClaim);
+          changed = true;
+        }
+      }
+      claimsMap = resolveClaims(recs);
+
+      if (!changed) { wroteC = true; break; } // nothing new → just return current
+      const toStore = Object.values(claimsMap); // canonical: one record per name
+      if (!cas) { await store.setJSON(claimsKey, toStore); wroteC = true; break; }
+      try {
+        const res = etag
+          ? await store.setJSON(claimsKey, toStore, { onlyIfMatch: etag })
+          : await store.setJSON(claimsKey, toStore, { onlyIfNew: true });
+        if (res && res.modified === false) continue; // lost the race → retry
+        wroteC = true;
+      } catch (_) {
+        await store.setJSON(claimsKey, toStore);
+        wroteC = true;
+      }
+    }
+  }
+
   // Tell the caller about every kebab they haven't seen yet + ack what we stored.
   const newSinceClient = updated.filter(k => (k.serverTs || k.ts || 0) > lastSyncTs);
   const maxServerTs = updated.reduce((m, k) => Math.max(m, k.serverTs || k.ts || 0), lastSyncTs);
@@ -116,8 +170,42 @@ export default async (request, context) => {
     ts: maxServerTs,
     total: updated.length,
     ack: clean.map(k => k.id),
+    claims: claimsMap,
   });
 };
+
+// Collapse raw claim records into the canonical, exclusive map returned to
+// clients: latest claim wins per NAME; the EARLIEST claim wins each avatar, so
+// no two players ever hold the same face. A player who lost an avatar race gets
+// avatar:null and must re-pick (the picker hides taken avatars, so this is rare).
+function resolveClaims(records) {
+  const byName = new Map();
+  for (const r of Array.isArray(records) ? records : []) {
+    const c = sanitizeClaim(r);
+    if (!c) continue;
+    const prev = byName.get(c.name);
+    if (!prev || c.ts >= prev.ts) byName.set(c.name, c);
+  }
+  const ordered = [...byName.values()].sort((a, b) => a.ts - b.ts);
+  const avatarOwner = new Map();
+  const out = {};
+  for (const c of ordered) {
+    let av = c.avatar;
+    if (av != null && avatarOwner.has(av) && avatarOwner.get(av) !== c.name) av = null;
+    if (av != null) avatarOwner.set(av, c.name);
+    out[c.name] = { name: c.name, avatar: av, ts: c.ts };
+  }
+  return out;
+}
+
+function sanitizeClaim(c) {
+  if (!c || typeof c !== 'object') return null;
+  const name = clip(c.name, 24).toUpperCase().trim();
+  if (!name) return null;
+  const ts = Number(c.ts);
+  const avatar = c.avatar == null ? null : clampInt(c.avatar, 1, 48);
+  return { name, avatar, ts: Number.isFinite(ts) && ts > 0 ? ts : 0 };
+}
 
 function json(payload, status = 200) {
   return new Response(JSON.stringify(payload), {

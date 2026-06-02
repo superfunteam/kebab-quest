@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { read, write, uuid } from './storage.js';
-import { syncOnce, mergeFeed, sanitizeForSync, nextBackoff, resetTripServer } from './sync.js';
+import { syncOnce, mergeFeed, mergeClaims, sanitizeForSync, nextBackoff, resetTripServer } from './sync.js';
 import { DEFAULT_CREW, TRIP_CODE, TRIP_DAYS, FREEZES, streakFromFeed, buildDaysFromFeed, computeStreak, localDayNum } from './data.js';
 
 // Defaults match the design's final state: Game Boy palette, clean LCD (no
@@ -38,7 +38,14 @@ function loadInitial() {
     return booted ? (onboarded ? 'play' : 'onboard') : 'boot';
   })();
   const eatConfirmed = read('eatConfirmed', false);
-  return { settings, playerName, playerAvatar, feed, crew, frozenDays, freezes, lastSyncTs, phase, eatConfirmed };
+  // Cross-device identity claims: { NAME: { name, avatar, ts } }. Seed our own
+  // claim from a pre-existing local identity (ts 0 = "always been mine") so
+  // upgrading clients immediately publish who they are on the next sync.
+  const claims = read('claims') || {};
+  let myClaim = read('myClaim', null);
+  if (!myClaim && playerName) myClaim = { name: playerName, avatar: playerAvatar, ts: 0 };
+  if (myClaim && !claims[myClaim.name]) claims[myClaim.name] = myClaim;
+  return { settings, playerName, playerAvatar, feed, crew, frozenDays, freezes, lastSyncTs, phase, eatConfirmed, claims, myClaim };
 }
 
 export function useGameStore() {
@@ -56,6 +63,8 @@ export function useGameStore() {
   const [lastSyncTs, setLastSyncTs] = useState(initial.lastSyncTs);
   const [phase, setPhase] = useState(initial.phase);
   const [eatConfirmed, setEatConfirmed] = useState(initial.eatConfirmed);
+  const [claims, setClaims] = useState(initial.claims);
+  const [myClaim, setMyClaim] = useState(initial.myClaim);
   const [online, setOnline] = useState(navigator.onLine !== false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState(null);
@@ -71,6 +80,8 @@ export function useGameStore() {
   useEffect(() => { write('freezes', freezes); }, [freezes]);
   useEffect(() => { write('lastSyncTs', lastSyncTs); }, [lastSyncTs]);
   useEffect(() => { write('eatConfirmed', eatConfirmed); }, [eatConfirmed]);
+  useEffect(() => { write('claims', claims); }, [claims]);
+  useEffect(() => { write('myClaim', myClaim); }, [myClaim]);
 
   // ── connection monitoring
   useEffect(() => {
@@ -91,6 +102,9 @@ export function useGameStore() {
   // Always-current trip code, so an in-flight sync can detect a reset mid-request.
   const tripCodeRef = useRef(tripCode);
   useEffect(() => { tripCodeRef.current = tripCode; }, [tripCode]);
+  // Latest identity claim, so every heartbeat re-publishes who this device is.
+  const myClaimRef = useRef(myClaim);
+  useEffect(() => { myClaimRef.current = myClaim; }, [myClaim]);
 
   const sync = useCallback(async () => {
     if (inFlightRef.current) return inFlightRef.current;
@@ -107,11 +121,16 @@ export function useGameStore() {
           tripCode: tc,
           kebabs: pending,
           lastSyncTs,
+          claim: myClaimRef.current,
           signal: controller.signal,
         });
         clearTimeout(timer);
         // If the trip changed during the request (e.g. a reset), drop stale results.
         if (tripCodeRef.current !== tc) return;
+        // Fold in the pod's identity claims (names + exclusive avatars).
+        if (result?.claims && typeof result.claims === 'object') {
+          setClaims(curr => mergeClaims(curr, result.claims));
+        }
         const incoming = Array.isArray(result?.kebabs) ? result.kebabs : [];
         // Mark our pushed kebabs as no-longer-pending; merge with anything new.
         setFeed(curr => {
@@ -163,6 +182,15 @@ export function useGameStore() {
     }
   }, [feed, online, sync]);
 
+  // Publish an identity claim promptly (don't wait for the heartbeat) so the
+  // rest of the pod sees the name + avatar as taken within a second of claiming.
+  useEffect(() => {
+    if (myClaim && online) {
+      const t = setTimeout(() => sync(), 400);
+      return () => clearTimeout(t);
+    }
+  }, [myClaim, online, sync]);
+
   // ── derived values
   // Tombstoned (deleted) kebabs stay in the raw feed so the deletion can sync,
   // but are hidden from every count, screen and streak.
@@ -188,19 +216,23 @@ export function useGameStore() {
     const mapped = crew.map(c => {
       const liveKebabs = byPlayer.get(c.name);
       const isYou = (c.name === playerName);
+      const claim = claims[c.name];
       return {
         ...c,
         you: isYou,
+        claimed: !!claim,
         kebabs: liveKebabs != null ? liveKebabs : (c.kebabs || 0),
         streak: isYou ? youStreak : streakFromFeed(visibleFeed, c.name),
-        avatar: isYou ? playerAvatar : (avatarByPlayer.get(c.name) ?? c.avatar ?? 1),
+        // Prefer a synced claim avatar, then the latest one seen in the feed,
+        // then the roster default — so faces are right even before any kebabs.
+        avatar: isYou ? playerAvatar : (claim?.avatar ?? avatarByPlayer.get(c.name) ?? c.avatar ?? 1),
       };
     });
     // Crown the player with the longest active streak.
     const maxStreak = Math.max(0, ...mapped.map(c => c.streak));
     const kingName = maxStreak > 0 ? (mapped.find(c => c.streak === maxStreak) || {}).name : null;
     return mapped.map(c => ({ ...c, king: c.name === kingName }));
-  }, [crew, visibleFeed, playerName, playerAvatar, youStreak]);
+  }, [crew, visibleFeed, playerName, playerAvatar, youStreak, claims]);
 
   const groupScore = crewView.reduce((s, c) => s + c.kebabs, 0);
 
@@ -317,16 +349,22 @@ export function useGameStore() {
     const clean = (name || '').toUpperCase().trim();
     if (!clean) return;
     setPlayerName(clean);
+    const av = avatar != null ? avatar : playerAvatar;
     if (avatar != null) setPlayerAvatar(avatar);
+    // Publish the claim locally + queue it for the next sync so the rest of the
+    // pod sees this name as taken and this avatar as spoken-for.
+    const claim = { name: clean, avatar: av ?? null, ts: Date.now() };
+    setMyClaim(claim);
+    setClaims(prev => ({ ...prev, [clean]: claim }));
     setCrew(prev => {
       const idx = prev.findIndex(c => c.name === clean);
       if (idx === -1) {
-        return [...prev, { name: clean, kebabs: 0, streak: 0, color: 'gold', avatar: avatar ?? 1 }];
+        return [...prev, { name: clean, kebabs: 0, streak: 0, color: 'gold', avatar: av ?? 1 }];
       }
       if (avatar != null) return prev.map((c, i) => i === idx ? { ...c, avatar } : c);
       return prev;
     });
-  }, []);
+  }, [playerAvatar]);
 
   // A true wipe. The key move is a fresh trip code: the old code's events stay
   // on the server (untouched), but this device starts on a brand-new, empty
@@ -346,7 +384,7 @@ export function useGameStore() {
   return {
     // state
     tripCode, settings, playerName, playerAvatar, feed: visibleFeed, crew: crewView, days, freezes, tripDays,
-    phase, online, syncing, syncError, eatConfirmed,
+    phase, online, syncing, syncError, eatConfirmed, claims,
     // derived
     groupScore, todayCount, you, youStreak,
     // actions
