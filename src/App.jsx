@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { makeTheme, VOICE, POW_WORDS } from './lib/theme.js';
 import { useGameStore } from './lib/useGameStore.js';
+import { sfx } from './lib/sound.js';
 
 import { BootScreen } from './components/BootScreen.jsx';
 import { Onboarding } from './components/Onboarding.jsx';
@@ -34,6 +35,12 @@ export default function App() {
   const pendingKebabRef = useRef(null);
   const comboRef = useRef({ n: 0, t: 0 });
 
+  // Keep the sound engine in step with the user's mute preference.
+  useEffect(() => { sfx.setEnabled(store.settings.sound !== false); }, [store.settings.sound]);
+
+  // Tab switches get a snappy click-pop.
+  const changeTab = (id) => { sfx.pop(); setTab(id); };
+
   // Only ever a real, logged location — no placeholder until the pod logs a kebab.
   const latestLoc = store.feed.find(k => k.city);
   const currentCity = latestLoc?.city || '';
@@ -56,6 +63,7 @@ export default function App() {
   };
 
   const doTap = () => {
+    sfx.munch();
     const now = Date.now();
     const c = comboRef.current;
     c.n = (now - c.t < 3500) ? c.n + 1 : 1;
@@ -137,7 +145,7 @@ export default function App() {
         {/* Gear button — open the tweaks drawer. Hidden during boot/onboarding. */}
         {store.phase === 'play' && !tweaksOpen && (
           <button
-            onClick={() => setTweaksOpen(true)}
+            onClick={() => { sfx.pop(); setTweaksOpen(true); }}
             title="Settings"
             style={{
               position: 'absolute',
@@ -288,7 +296,7 @@ export default function App() {
           onCancel={() => setConfirmOpen(false)}
         />
 
-        {store.phase === 'play' && <BottomNav tab={tab} setTab={setTab} theme={T} />}
+        {store.phase === 'play' && <BottomNav tab={tab} setTab={changeTab} theme={T} />}
       </div>
 
       {tweaksOpen && (

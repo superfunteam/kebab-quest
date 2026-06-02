@@ -2,6 +2,7 @@ import React from 'react';
 import { MonoIcon } from '../lib/sprites.jsx';
 import { titleShadow } from '../lib/theme.js';
 import { computeStreak, TRIP_LABEL } from '../lib/data.js';
+import { sfx } from '../lib/sound.js';
 
 export function StreakScreen({ theme, voice, days, tripDays, freezes, onFreeze }) {
   const T = theme;
@@ -155,7 +156,7 @@ export function StreakScreen({ theme, voice, days, tripDays, freezes, onFreeze }
           </div>
         </div>
         <button
-          onClick={onFreeze}
+          onClick={() => { sfx.freeze(); onFreeze(); }}
           disabled={freezes < 1 || todayEaten}
           style={{
             border: 'none',

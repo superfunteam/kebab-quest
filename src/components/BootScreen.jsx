@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { titleShadow } from '../lib/theme.js';
+import { sfx } from '../lib/sound.js';
 
 export function BootScreen({ theme, onStart }) {
   const T = theme;
@@ -10,9 +11,12 @@ export function BootScreen({ theme, onStart }) {
     return () => clearInterval(i);
   }, []);
 
+  // First gesture of the session — unlock audio, then fire the intro chime.
+  const start = () => { sfx.init(); sfx.intro(); onStart(); };
+
   return (
     <div
-      onClick={onStart}
+      onClick={start}
       style={{
         position: 'absolute',
         inset: 0,

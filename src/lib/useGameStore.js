@@ -17,6 +17,7 @@ const TWEAK_DEFAULTS = {
   tone: 'hype',
   scanlines: false,
   crt: false,
+  sound: true,
 };
 
 function loadInitial() {

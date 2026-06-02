@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MonoIcon, Avatar, AVATAR_COUNT } from '../lib/sprites.jsx';
+import { sfx } from '../lib/sound.js';
 
 // Fisher-Yates — so the name list looks random, not a fixed roster order.
 function shuffle(arr) {
@@ -25,13 +26,17 @@ export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onD
 
   const next = () => {
     if (!name) return;
+    sfx.pop();
     onClaim(name, avatar);
     setStep('how');
   };
 
+  const pickName = (nm) => { sfx.blip(); setName(nm); };
+
   // Avatar select: step left/right (wraps) or randomize from the folder.
-  const stepAvatar = (delta) => setAvatar(a => ((a - 1 + delta + AVATAR_COUNT) % AVATAR_COUNT) + 1);
+  const stepAvatar = (delta) => { sfx.blip(); setAvatar(a => ((a - 1 + delta + AVATAR_COUNT) % AVATAR_COUNT) + 1); };
   const randomAvatar = () => {
+    sfx.shuffle();
     let n = avatar;
     for (let i = 0; i < 8 && n === avatar; i++) n = Math.floor(Math.random() * AVATAR_COUNT) + 1;
     setAvatar(n);
@@ -92,7 +97,7 @@ export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onD
               return (
                 <button
                   key={nm}
-                  onClick={() => setName(nm)}
+                  onClick={() => pickName(nm)}
                   style={{
                     border: '2px solid ' + (on ? T.gold : T.line),
                     background: on ? T.gold : T.surf,
@@ -231,7 +236,7 @@ export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onD
       </div>
       <div style={{ padding: '12px 20px calc(22px + var(--safe-bottom))', display: 'flex', gap: 10 }}>
         <button
-          onClick={() => setStep('id')}
+          onClick={() => { sfx.pop(); setStep('id'); }}
           style={{
             border: '2px solid ' + T.line,
             background: T.surf,
@@ -247,7 +252,7 @@ export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onD
           ‹
         </button>
         <button
-          onClick={onDone}
+          onClick={() => { sfx.success(); onDone(); }}
           style={{
             flex: 1,
             border: 'none',

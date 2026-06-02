@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MonoIcon, PixelStars, Avatar } from '../lib/sprites.jsx';
+import { sfx } from '../lib/sound.js';
 
 // Used for two flows that share the same form:
 //  - LOG (post-tap): a fresh kebab, fields blank → SAVE KEBAB / SKIP.
@@ -97,8 +98,8 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
     return f;
   };
 
-  const save = () => onSave(detailFields());
-  const skip = () => onSave({ player: who }); // keep attribution, drop the extra details
+  const save = () => { sfx.success(); onSave(detailFields()); };
+  const skip = () => { sfx.pop(); onSave({ player: who }); }; // keep attribution, drop the extra details
   const forSomeoneElse = who && youName && who !== youName;
 
   return (
@@ -149,13 +150,13 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
 
         <div style={{ marginBottom: 20 }}>
           {label('How good')}
-          <PixelStars value={rating} size={30} color={T.gold} dim={T.surf2} onChange={setRating} gap={8} />
+          <PixelStars value={rating} size={30} color={T.gold} dim={T.surf2} onChange={v => { sfx.blip(); setRating(v); }} gap={8} />
         </div>
 
         <div style={{ marginBottom: 20 }}>
           {label('Evidence')}
           <div
-            onClick={() => setPhoto(!photo)}
+            onClick={() => { sfx.boink(); setPhoto(!photo); }}
             style={{
               height: photo ? 120 : 66,
               border: '2px dashed ' + (photo ? T.green : T.line),
@@ -199,7 +200,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
             {['Chicken', 'Beef', 'Lamb', 'Mixed', 'Veg'].map(m => (
               <div
                 key={m}
-                onClick={() => setMeat(m)}
+                onClick={() => { sfx.blip(); setMeat(m); }}
                 style={{
                   padding: '9px 13px',
                   fontSize: 15,
@@ -260,7 +261,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
                 </span>
               </div>
               <button
-                onClick={() => setPickerOpen(true)}
+                onClick={() => { sfx.pop(); setPickerOpen(true); }}
                 style={{
                   display: 'block',
                   background: 'none',
@@ -284,7 +285,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
                 return (
                   <button
                     key={c.name}
-                    onClick={() => { setWho(c.name); setPickerOpen(false); }}
+                    onClick={() => { sfx.blip(); setWho(c.name); setPickerOpen(false); }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -327,7 +328,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
         {isEdit ? (
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             <button
-              onClick={onDelete}
+              onClick={() => { sfx.boink(); onDelete(); }}
               style={{
                 flex: 1,
                 border: '2px solid ' + T.red,
@@ -343,7 +344,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
               DELETE
             </button>
             <button
-              onClick={onClose}
+              onClick={() => { sfx.pop(); onClose(); }}
               style={{
                 flex: 1,
                 border: '2px solid ' + T.line,

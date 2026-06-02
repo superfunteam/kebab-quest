@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { KebabSprite, MonoIcon } from '../lib/sprites.jsx';
+import { sfx } from '../lib/sound.js';
 
 // Shown the FIRST time a player taps EAT KEBAB. They must tick the checkbox to
 // confirm they actually ate one — guards against accidental logs. Once confirmed
@@ -81,7 +82,7 @@ export function ConfirmEatModal({ open, theme, onConfirm, onCancel }) {
           <input
             type="checkbox"
             checked={checked}
-            onChange={e => setChecked(e.target.checked)}
+            onChange={e => { sfx.blip(); setChecked(e.target.checked); }}
             style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
           />
           <span style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: T.text, lineHeight: 1.3 }}>
@@ -108,7 +109,7 @@ export function ConfirmEatModal({ open, theme, onConfirm, onCancel }) {
           LET'S EAT 🥙
         </button>
         <button
-          onClick={onCancel}
+          onClick={() => { sfx.pop(); onCancel(); }}
           style={{
             width: '100%',
             border: 'none',

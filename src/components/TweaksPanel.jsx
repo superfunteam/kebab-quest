@@ -1,6 +1,7 @@
 import React from 'react';
 import { MonoIcon, Avatar } from '../lib/sprites.jsx';
 import { PALETTES, colorOf } from '../lib/theme.js';
+import { sfx } from '../lib/sound.js';
 
 export function TweaksPanel({
   theme, settings, setTweak,
@@ -18,11 +19,13 @@ export function TweaksPanel({
     onCrewChange(crew.map((c, idx) => idx === i ? { ...c, ...patch } : c));
   };
   const addMember = () => {
+    sfx.pop();
     const name = ('PLAYER' + (crew.length + 1)).slice(0, 12);
     onCrewChange([...crew, { name, kebabs: 0, streak: 0, color: COLORS[crew.length % COLORS.length], avatar: (crew.length % 48) + 1 }]);
   };
   const removeMember = (i) => {
     if (crew[i].you) return;
+    sfx.boink();
     onCrewChange(crew.filter((_, idx) => idx !== i));
   };
 
@@ -75,7 +78,7 @@ export function TweaksPanel({
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, color: T.text, textShadow: `2px 2px 0 ${T.bg0}` }}>
             TWEAKS
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.muted, fontFamily: 'var(--font-display)', fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={() => { sfx.pop(); onClose(); }} style={{ background: 'none', border: 'none', color: T.muted, fontFamily: 'var(--font-display)', fontSize: 12, cursor: 'pointer' }}>
             ✕
           </button>
         </div>
@@ -89,7 +92,7 @@ export function TweaksPanel({
           'Playing as',
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Avatar n={playerAvatar} size={26} theme={T} borderColor={T.gold} />
-            <select value={playerName} onChange={e => onClaimIdentity(e.target.value)} style={{ ...input, width: 120 }}>
+            <select value={playerName} onChange={e => { sfx.blip(); onClaimIdentity(e.target.value); }} style={{ ...input, width: 120 }}>
               {!playerName && <option value="">— pick —</option>}
               {crew.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
             </select>
@@ -102,12 +105,13 @@ export function TweaksPanel({
         {section('LOOK')}
         {row(
           'Palette',
-          <select value={settings.palette} onChange={e => setTweak('palette', e.target.value)} style={{ ...input, paddingRight: 22 }}>
+          <select value={settings.palette} onChange={e => { sfx.blip(); setTweak('palette', e.target.value); }} style={{ ...input, paddingRight: 22 }}>
             {Object.keys(PALETTES).map(name => <option key={name} value={name}>{name}</option>)}
           </select>
         )}
         {row('Scanlines', <Toggle theme={T} value={settings.scanlines} onChange={v => setTweak('scanlines', v)} />)}
         {row('CRT vignette', <Toggle theme={T} value={settings.crt} onChange={v => setTweak('crt', v)} />)}
+        {row('Sound FX', <Toggle theme={T} value={settings.sound !== false} onChange={v => setTweak('sound', v)} />)}
 
         {section('VOICE')}
         {row(
@@ -116,7 +120,7 @@ export function TweaksPanel({
             {['hype', 'dry'].map(t => (
               <button
                 key={t}
-                onClick={() => setTweak('tone', t)}
+                onClick={() => { sfx.blip(); setTweak('tone', t); }}
                 style={{
                   border: '2px solid ' + (settings.tone === t ? T.gold : T.line),
                   background: settings.tone === t ? T.gold : 'transparent',
@@ -158,7 +162,7 @@ export function TweaksPanel({
             {row('Last sync', <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: T.muted }}>{lastSyncLabel}</span>)}
             {syncError && row('Last error', <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: T.red }}>{syncError}</span>)}
             <button
-              onClick={onSync}
+              onClick={() => { sfx.pop(); onSync(); }}
               style={{ width: '100%', border: 'none', background: T.green, color: T.bg0, padding: '12px', fontFamily: 'var(--font-display)', fontSize: 10, cursor: 'pointer', boxShadow: `0 4px 0 ${T.bg0}`, marginTop: 12 }}
             >
               ⟳ SYNC NOW
@@ -208,7 +212,7 @@ function Toggle({ theme, value, onChange }) {
   const T = theme;
   return (
     <button
-      onClick={() => onChange(!value)}
+      onClick={() => { sfx.boink(); onChange(!value); }}
       style={{ width: 50, height: 24, background: value ? T.green : T.bg0, border: '2px solid ' + (value ? T.green : T.line), position: 'relative', cursor: 'pointer', padding: 0 }}
     >
       <div style={{ position: 'absolute', top: 2, left: value ? 26 : 2, width: 16, height: 16, background: value ? T.bg0 : T.muted, transition: 'left .12s steps(3)' }} />
@@ -220,7 +224,7 @@ function Button({ theme, onClick, label, danger }) {
   const T = theme;
   return (
     <button
-      onClick={onClick}
+      onClick={() => { danger ? sfx.boink() : sfx.pop(); onClick(); }}
       style={{
         width: '100%',
         border: '2px solid ' + (danger ? T.red : T.line),
