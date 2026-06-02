@@ -35,16 +35,12 @@ export const VOICE = {
   hype: {
     cta: 'EAT KEBAB', scoreLabel: 'POD SCORE', streakLabel: 'STREAK',
     todayPrompt: 'INSERT KEBAB TO CONTINUE', done: 'YUM! +1 POD SCORE',
-    mapTitle: 'WORLD MAP', mapSub: 'GERMANY ▸ CROATIA',
-    boss: 'DUBROVNIK', bossSub: 'FINAL BOSS', finish: 'KEBAB CHAMPIONS',
     chainTitle: 'THE CHAIN', chainSub: 'EVERY KEBAB, LINKED',
     streakTitle: 'YOUR STREAK', streakSub: 'KEEP IT LIT, KEBAB KING',
   },
   dry: {
     cta: 'EAT KEBAB', scoreLabel: 'POD TOTAL', streakLabel: 'STREAK',
     todayPrompt: 'No kebab logged today.', done: '+1. Logged.',
-    mapTitle: 'WORLD MAP', mapSub: 'Germany to Croatia',
-    boss: 'DUBROVNIK', bossSub: 'Final stop', finish: 'Trip complete',
     chainTitle: 'The Chain', chainSub: 'Every kebab, linked',
     streakTitle: 'Your Streak', streakSub: 'Eat one a day to keep it.',
   },

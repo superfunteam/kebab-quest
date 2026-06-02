@@ -58,7 +58,7 @@ export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onD
     { icon: 'flame', title: 'KEEP IT LIT',      body: 'Eat at least one a day to grow your personal streak. Miss a day and it resets.' },
     { icon: 'snow',  title: 'BANK A CHEAT DAY', body: 'Out of luck? Burn a streak freeze to save a missed day and keep the chain alive.' },
     { icon: 'crew',  title: 'LOG FOR ANYONE',   body: "Eating with friends who aren't on their phone? When you log, just tag whose kebab it was." },
-    { icon: 'crown', title: 'BEAT THE POD',     body: 'Climb the leaderboard. One pod, many kebabs — Croatia is the final boss.' },
+    { icon: 'crown', title: 'BEAT THE POD',     body: 'Climb the leaderboard. One pod, many kebabs — the last day is the final boss.' },
   ];
 
   const wrap = {

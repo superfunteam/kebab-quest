@@ -262,7 +262,7 @@ export function ChainScreen({ theme, voice, feed, crew, onSelect }) {
           >
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 8, color: T.green }}>▶ TRIP START</div>
             <div style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: T.muted, marginTop: 5 }}>
-              {feed[feed.length - 1]?.city || 'Berlin'}, day one
+              {feed[feed.length - 1]?.city ? feed[feed.length - 1].city + ', ' : ''}the first kebab
             </div>
           </div>
         )}

@@ -215,9 +215,11 @@ export function useGameStore() {
   const logKebab = useCallback((partial) => {
     const now = Date.now();
     const time = new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    const last = visibleFeed[0];
-    const city = partial?.city || last?.city || 'Berlin';
-    const cc = partial?.cc || last?.cc || 'DE';
+    // Inherit the last logged city (you're probably still there), but never invent
+    // a placeholder — no location until someone actually enters one.
+    const last = visibleFeed.find(k => k.city);
+    const city = partial?.city || last?.city || '';
+    const cc = partial?.cc || last?.cc || '';
     const kebab = {
       id: uuid(),
       player: playerName,

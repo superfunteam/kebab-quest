@@ -189,7 +189,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
           </div>
           <div style={{ flex: 1 }}>
             {label('CC')}
-            <input style={input} placeholder="HR" maxLength={3} value={ccField} onChange={e => setCcField(e.target.value.toUpperCase())} />
+            <input style={input} placeholder="—" maxLength={3} value={ccField} onChange={e => setCcField(e.target.value.toUpperCase())} />
           </div>
         </div>
 

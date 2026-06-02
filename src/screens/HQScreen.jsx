@@ -37,12 +37,14 @@ export function HQScreen({ theme, voice, crew, groupScore, todayCount, you, curr
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 8, color: T.muted, letterSpacing: 1 }}>TODAY</div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: T.green, marginTop: 7 }}>+{todayCount}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, justifyContent: 'flex-end' }}>
-            <MonoIcon name="pin" size={11} color={T.red} />
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: T.muted, whiteSpace: 'nowrap' }}>
-              {currentCity}{currentCC ? ' · ' + currentCC : ''}
-            </span>
-          </div>
+          {currentCity && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, justifyContent: 'flex-end' }}>
+              <MonoIcon name="pin" size={11} color={T.red} />
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: T.muted, whiteSpace: 'nowrap' }}>
+                {currentCity}{currentCC ? ' · ' + currentCC : ''}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

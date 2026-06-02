@@ -34,8 +34,10 @@ export default function App() {
   const pendingKebabRef = useRef(null);
   const comboRef = useRef({ n: 0, t: 0 });
 
-  const currentCity = store.feed[0]?.city || 'Berlin';
-  const currentCC = store.feed[0]?.cc || 'DE';
+  // Only ever a real, logged location — no placeholder until the pod logs a kebab.
+  const latestLoc = store.feed.find(k => k.city);
+  const currentCity = latestLoc?.city || '';
+  const currentCC = latestLoc?.cc || '';
   const pendingCount = useMemo(() => store.feed.filter(k => k.pending).length, [store.feed]);
 
   // First tap ever → make them confirm they really ate a kebab. After that, log directly.
