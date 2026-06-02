@@ -8,13 +8,17 @@
 
 const SYNC_URL = '/api/sync';
 
-export async function syncOnce({ tripCode, kebabs, lastSyncTs, signal }) {
+export async function syncOnce({ tripCode, kebabs, lastSyncTs, claim, frozen, signal }) {
   if (!tripCode) throw new Error('no trip code');
+
+  const body = { tripCode, kebabs: kebabs || [], lastSyncTs: lastSyncTs || 0 };
+  if (claim) body.claim = claim; // ride-along identity claim (name + avatar)
+  if (frozen && Array.isArray(frozen.days) && frozen.days.length) body.frozen = frozen; // streak cheat days
 
   const res = await fetch(SYNC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tripCode, kebabs: kebabs || [], lastSyncTs: lastSyncTs || 0 }),
+    body: JSON.stringify(body),
     signal,
   });
 
@@ -68,6 +72,31 @@ export function mergeFeed(local, incoming) {
 export function sanitizeForSync(k) {
   const { pending, ...rest } = k;
   return rest;
+}
+
+// Merge the server's authoritative claims map with our local one, keeping the
+// newest claim per name (so an offline re-pick that hasn't synced yet survives).
+export function mergeClaims(local, incoming) {
+  const out = { ...(incoming || {}) };
+  for (const name in (local || {})) {
+    const l = local[name];
+    if (!l) continue;
+    if (!out[name] || (l.ts || 0) > (out[name].ts || 0)) out[name] = l;
+  }
+  return out;
+}
+
+// Merge two { NAME: [dayNum] } freeze maps by unioning each player's days —
+// freezes are permanent, so a union can never lose a cheat day either side has.
+export function mergeFrozen(local, incoming) {
+  const out = {};
+  const names = new Set([...Object.keys(local || {}), ...Object.keys(incoming || {})]);
+  for (const n of names) {
+    const a = Array.isArray((local || {})[n]) ? local[n] : [];
+    const b = Array.isArray((incoming || {})[n]) ? incoming[n] : [];
+    out[n] = Array.from(new Set([...a, ...b])).sort((x, y) => x - y);
+  }
+  return out;
 }
 
 // Returns a promise that resolves when the network goes online,

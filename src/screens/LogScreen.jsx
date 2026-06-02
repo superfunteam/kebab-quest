@@ -1,6 +1,7 @@
 import React from 'react';
 import { PixelStars, Avatar } from '../lib/sprites.jsx';
 import { colorOf, formatEuro, titleShadow } from '../lib/theme.js';
+import { sfx } from '../lib/sound.js';
 
 export function LogScreen({ theme, feed, crew, onSelect }) {
   const T = theme;
@@ -31,7 +32,7 @@ export function LogScreen({ theme, feed, crew, onSelect }) {
         {feed.map((f) => (
           <div
             key={f.id}
-            onClick={() => onSelect && onSelect(f)}
+            onClick={() => { if (onSelect) { sfx.pop(); onSelect(f); } }}
             style={{
               display: 'flex',
               gap: 11,

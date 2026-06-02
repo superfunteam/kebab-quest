@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MonoIcon, Avatar, AVATAR_COUNT } from '../lib/sprites.jsx';
+import { sfx } from '../lib/sound.js';
 
 // Fisher-Yates — so the name list looks random, not a fixed roster order.
 function shuffle(arr) {
@@ -14,8 +15,9 @@ function shuffle(arr) {
 // Two-step onboarding:
 //  1) WHO ARE YOU? — claim a roster name + pick a pixel avatar (no password).
 //  2) HOW TO PLAY  — the quick rules, then START QUEST.
-export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onDone }) {
+export function Onboarding({ theme, crew, claims, playerName, playerAvatar, onClaim, onDone }) {
   const T = theme;
+  const claimMap = claims || {};
   const [name, setName] = useState(playerName || '');
   const [avatar, setAvatar] = useState(playerAvatar || 1);
   const [step, setStep] = useState(playerName ? 'how' : 'id');
@@ -23,17 +25,55 @@ export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onD
   // Shuffled once per visit to the onboarding screen.
   const [roster] = useState(() => shuffle((crew && crew.length ? crew : []).map(c => c.name)));
 
+  // Avatars already spoken for by OTHER players are off-limits — kept exclusive
+  // across the whole pod. Your own currently-selected name never blocks itself.
+  const takenByOthers = useMemo(() => {
+    const s = new Set();
+    for (const k in claimMap) {
+      const c = claimMap[k];
+      if (c && c.avatar != null && c.name !== name) s.add(c.avatar);
+    }
+    return s;
+  }, [claimMap, name]);
+  const available = useMemo(() => {
+    const a = [];
+    for (let i = 1; i <= AVATAR_COUNT; i++) if (!takenByOthers.has(i)) a.push(i);
+    return a;
+  }, [takenByOthers]);
+
+  // If the face you're on gets claimed by someone else (live sync), hop to a free one.
+  useEffect(() => {
+    if (available.length && !available.includes(avatar)) setAvatar(available[0]);
+  }, [available, avatar]);
+
   const next = () => {
     if (!name) return;
+    sfx.pop();
     onClaim(name, avatar);
     setStep('how');
   };
 
-  // Avatar select: step left/right (wraps) or randomize from the folder.
-  const stepAvatar = (delta) => setAvatar(a => ((a - 1 + delta + AVATAR_COUNT) % AVATAR_COUNT) + 1);
+  const pickName = (nm) => {
+    sfx.blip();
+    setName(nm);
+    // Re-claiming a name on a new device? Snap back to that player's own face.
+    const claimed = claimMap[nm];
+    if (claimed && claimed.avatar != null) setAvatar(claimed.avatar);
+  };
+
+  // Avatar select: step left/right or randomize — but only across FREE faces.
+  const stepAvatar = (delta) => {
+    if (!available.length) return;
+    sfx.blip();
+    const i = available.indexOf(avatar);
+    const base = i === -1 ? 0 : i;
+    setAvatar(available[(base + delta + available.length) % available.length]);
+  };
   const randomAvatar = () => {
+    if (!available.length) return;
+    sfx.shuffle();
     let n = avatar;
-    for (let i = 0; i < 8 && n === avatar; i++) n = Math.floor(Math.random() * AVATAR_COUNT) + 1;
+    for (let i = 0; i < 8 && n === avatar; i++) n = available[Math.floor(Math.random() * available.length)];
     setAvatar(n);
   };
   const arrowStyle = {
@@ -89,14 +129,25 @@ export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onD
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
             {roster.map(nm => {
               const on = nm === name;
+              const claimed = !!claimMap[nm];
+              const isMine = claimed && claimMap[nm].name === playerName;
+              // Claimed names are dimmed + struck through with a check — but still
+              // tappable, so someone on a new phone can re-claim their own spot.
+              const dim = claimed && !on;
               return (
                 <button
                   key={nm}
-                  onClick={() => setName(nm)}
+                  onClick={() => pickName(nm)}
+                  title={claimed ? (isMine ? 'This is you' : 'Already claimed — tap if this is you on a new device') : undefined}
                   style={{
-                    border: '2px solid ' + (on ? T.gold : T.line),
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                    border: '2px solid ' + (on ? T.gold : claimed ? T.green : T.line),
                     background: on ? T.gold : T.surf,
-                    color: on ? T.bg0 : T.text,
+                    color: on ? T.bg0 : dim ? T.muted : T.text,
                     fontFamily: 'var(--font-body)',
                     fontSize: 15,
                     fontWeight: 700,
@@ -104,12 +155,23 @@ export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onD
                     padding: '10px 4px',
                     cursor: 'pointer',
                     boxShadow: on ? 'none' : `0 3px 0 ${T.bg0}`,
+                    opacity: dim ? 0.55 : 1,
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {nm}
+                  <span
+                    style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      textDecoration: dim ? 'line-through' : 'none',
+                    }}
+                  >
+                    {nm}
+                  </span>
+                  {claimed && (
+                    <MonoIcon name="check" size={10} color={on ? T.bg0 : T.green} />
+                  )}
                 </button>
               );
             })}
@@ -124,7 +186,7 @@ export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onD
             <div style={{ textAlign: 'center' }}>
               <Avatar n={avatar} size={108} theme={T} borderColor={T.gold} style={{ boxShadow: `0 0 14px ${T.gold}` }} />
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 8, color: T.muted, marginTop: 9 }}>
-                #{avatar} / {AVATAR_COUNT}
+                #{avatar} · {available.length} FREE
               </div>
             </div>
             <button onClick={() => stepAvatar(1)} aria-label="Next avatar" style={arrowStyle}>›</button>
@@ -231,7 +293,7 @@ export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onD
       </div>
       <div style={{ padding: '12px 20px calc(22px + var(--safe-bottom))', display: 'flex', gap: 10 }}>
         <button
-          onClick={() => setStep('id')}
+          onClick={() => { sfx.pop(); setStep('id'); }}
           style={{
             border: '2px solid ' + T.line,
             background: T.surf,
@@ -247,7 +309,7 @@ export function Onboarding({ theme, crew, playerName, playerAvatar, onClaim, onD
           ‹
         </button>
         <button
-          onClick={onDone}
+          onClick={() => { sfx.success(); onDone(); }}
           style={{
             flex: 1,
             border: 'none',

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { KebabSprite, MonoIcon, PixelStars, Avatar } from '../lib/sprites.jsx';
 import { colorOf, titleShadow } from '../lib/theme.js';
+import { sfx } from '../lib/sound.js';
 
 // How many unclaimed "upcoming" nodes to show above the latest kebab, like the
 // locked levels ahead of you on a video-game world map.
@@ -9,6 +10,17 @@ const LOCKED_AHEAD = 3;
 export function ChainScreen({ theme, voice, feed, crew, onSelect }) {
   const T = theme;
   const V = voice;
+
+  // As you drag the chain, fire a low "tick" + a tiny haptic buzz every ~16px —
+  // it feels like ratcheting the screen down over a rack of ribs (per-per-per).
+  const lastTickY = useRef(0);
+  const onScroll = (e) => {
+    const y = e.currentTarget.scrollTop;
+    if (Math.abs(y - lastTickY.current) >= 16) {
+      lastTickY.current = y;
+      sfx.tick();
+    }
+  };
   const pColor = (p) => {
     const m = crew.find(c => c.name === p);
     return m ? colorOf(T, m.color) : T.muted;
@@ -43,7 +55,7 @@ export function ChainScreen({ theme, voice, feed, crew, onSelect }) {
   }
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', background: `linear-gradient(${T.bg1}, ${T.bg0})` }}>
+    <div onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', background: `linear-gradient(${T.bg1}, ${T.bg0})` }}>
       <div
         style={{
           position: 'sticky',
@@ -155,7 +167,7 @@ export function ChainScreen({ theme, voice, feed, crew, onSelect }) {
           return (
             <div
               key={f.id || i}
-              onClick={() => onSelect && onSelect(f)}
+              onClick={() => { if (onSelect) { sfx.pop(); onSelect(f); } }}
               style={{
                 position: 'absolute',
                 left: xOfRow(r) + '%',
