@@ -5,7 +5,7 @@ import { sfx } from '../lib/sound.js';
 
 export function TweaksPanel({
   theme, settings, setTweak,
-  playerName, playerAvatar, onClaimIdentity,
+  playerName, playerAvatar, claims, onClaimIdentity,
   isAdmin,
   crew, onCrewChange,
   online, syncing, pendingCount, lastSyncTs, syncError, onSync,
@@ -14,6 +14,21 @@ export function TweaksPanel({
 }) {
   const T = theme;
   const COLORS = ['gold', 'red', 'blue', 'green', 'accent', 'muted'];
+  const claimMap = claims || {};
+
+  // You can only switch INTO an identity that has actively claimed a name + an
+  // avatar — switching is "log in as that player", not "grab their face". Always
+  // include yourself so the control has a valid current value.
+  const claimedFor = (nm) => claimMap[nm] && claimMap[nm].avatar != null;
+  const switchOptions = Array.from(new Set(
+    [playerName, ...Object.keys(claimMap).filter(claimedFor)].filter(Boolean)
+  ));
+  // Switching adopts that player's own claimed avatar (it's already theirs).
+  const switchTo = (nm) => {
+    sfx.blip();
+    const av = (claimMap[nm] && claimMap[nm].avatar) ?? (crew.find(c => c.name === nm) || {}).avatar ?? null;
+    onClaimIdentity(nm, av);
+  };
 
   const updateMember = (i, patch) => {
     onCrewChange(crew.map((c, idx) => idx === i ? { ...c, ...patch } : c));
@@ -92,14 +107,14 @@ export function TweaksPanel({
           'Playing as',
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Avatar n={playerAvatar} size={26} theme={T} borderColor={T.gold} />
-            <select value={playerName} onChange={e => { sfx.blip(); onClaimIdentity(e.target.value); }} style={{ ...input, width: 120 }}>
+            <select value={playerName} onChange={e => switchTo(e.target.value)} style={{ ...input, width: 120 }}>
               {!playerName && <option value="">— pick —</option>}
-              {crew.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+              {switchOptions.map(nm => <option key={nm} value={nm}>{nm}</option>)}
             </select>
           </div>
         )}
         <div style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: T.muted, marginTop: 8, lineHeight: 1.4 }}>
-          No password — this device just remembers who you are. Everyone's auto-synced to the same pod.
+          No password — this device just remembers who you are. You can only switch to players who've claimed their name &amp; avatar; switching takes on their face. To sign up someone new, use “How to play”.
         </div>
 
         {section('LOOK')}

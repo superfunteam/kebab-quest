@@ -307,6 +307,7 @@ export default function App() {
           setTweak={store.setTweak}
           playerName={store.playerName}
           playerAvatar={store.playerAvatar}
+          claims={store.claims}
           onClaimIdentity={store.claimIdentity}
           isAdmin={store.playerName === 'CLARK'}
           crew={store.crew}
