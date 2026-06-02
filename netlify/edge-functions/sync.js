@@ -49,35 +49,65 @@ export default async (request, context) => {
   const store = getStore({ name: 'kebab-quest', consistency: 'strong' });
   const key = `trip:${tripCode}`;
 
-  // Read existing log, upsert, write back. If the blob doesn't exist, start fresh.
-  const existing = (await store.get(key, { type: 'json' })) || [];
-  const byId = new Map(existing.map(k => [k.id, k]));
+  // Clark-only reset: wipe the shared log for the whole pod.
+  if (body?.reset === true) {
+    await store.setJSON(key, []);
+    return json({ kebabs: [], ts: 0, total: 0, ack: [] });
+  }
+
   const ver = (k) => (k && (k.updatedAt || k.ts)) || 0;
 
-  const now = Date.now();
-  let bump = 0;
-  let changed = false;
-  for (const k of clean) {
-    const prev = byId.get(k.id);
-    // New ids are inserted; existing ids are replaced only when the incoming
-    // version is newer (edits / deletes carry a higher updatedAt). serverTs is the
-    // monotonic clock used for lastSyncTs comparisons; client ts is preserved.
-    if (!prev || ver(k) > ver(prev)) {
-      byId.set(k.id, { ...k, serverTs: now + (bump++) });
-      changed = true;
+  // Upsert with optimistic concurrency, so two phones logging at the same moment
+  // never clobber each other (which would silently drop one person's kebab).
+  // Read-with-etag → merge → conditional write; retry on conflict. Falls back to a
+  // plain read-modify-write if the runtime lacks conditional writes.
+  let updated = [];
+  let wrote = false;
+  for (let attempt = 0; attempt < 8 && !wrote; attempt++) {
+    let existing = [];
+    let etag = null;
+    let cas = true;
+    try {
+      const meta = await store.getWithMetadata(key, { type: 'json' });
+      existing = (meta && meta.data) || [];
+      etag = (meta && meta.etag) || null;
+    } catch (_) {
+      cas = false;
+      existing = (await store.get(key, { type: 'json' })) || [];
+    }
+
+    const byId = new Map(existing.map(k => [k.id, k]));
+    const now = Date.now();
+    let bump = 0;
+    let changed = false;
+    for (const k of clean) {
+      // New ids inserted; existing ids replaced only when the incoming version is
+      // newer (edits/deletes carry a higher updatedAt). serverTs = monotonic clock.
+      const prev = byId.get(k.id);
+      if (!prev || ver(k) > ver(prev)) {
+        byId.set(k.id, { ...k, serverTs: now + (bump++) });
+        changed = true;
+      }
+    }
+    updated = Array.from(byId.values()); // Map preserves order
+    if (updated.length > MAX_HISTORY) updated = updated.slice(updated.length - MAX_HISTORY);
+
+    if (!changed) { wrote = true; break; } // nothing new to persist
+    if (!cas) { await store.setJSON(key, updated); wrote = true; break; }
+    try {
+      const res = etag
+        ? await store.setJSON(key, updated, { onlyIfMatch: etag })
+        : await store.setJSON(key, updated, { onlyIfNew: true });
+      if (res && res.modified === false) continue; // another writer beat us → retry
+      wrote = true;
+    } catch (_) {
+      await store.setJSON(key, updated); // conditional writes unsupported → plain write
+      wrote = true;
     }
   }
+  if (!wrote) return json({ error: 'write_conflict' }, 503); // client keeps it queued
 
-  // Map preserves insertion order, so existing entries keep their place.
-  let updated = Array.from(byId.values());
-  if (changed) {
-    if (updated.length > MAX_HISTORY) {
-      updated = updated.slice(updated.length - MAX_HISTORY);
-    }
-    await store.setJSON(key, updated);
-  }
-
-  // Tell the caller about every kebab they haven't seen yet.
+  // Tell the caller about every kebab they haven't seen yet + ack what we stored.
   const newSinceClient = updated.filter(k => (k.serverTs || k.ts || 0) > lastSyncTs);
   const maxServerTs = updated.reduce((m, k) => Math.max(m, k.serverTs || k.ts || 0), lastSyncTs);
 
@@ -85,6 +115,7 @@ export default async (request, context) => {
     kebabs: newSinceClient,
     ts: maxServerTs,
     total: updated.length,
+    ack: clean.map(k => k.id),
   });
 };
 

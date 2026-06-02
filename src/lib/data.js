@@ -26,7 +26,14 @@ export const ROSTER_NAMES = DEFAULT_CREW.map(c => c.name);
 // No demo kebabs — clean slate for the real trip.
 export const SEED_FEED = [];
 
-export const TRIP_DAYS = 14;
+// One shared trip — the whole pod syncs to this single partition. No per-trip
+// codes; everyone is automatically on the main trip.
+export const TRIP_CODE = 'KQPOD2026';
+
+// Fixed trip: leave Jun 4, return Jun 21 (inclusive) = 18 days.
+export const TRIP_DAYS = 18;
+export const TRIP_LABEL = 'JUN 4 – JUN 21';
+
 export const FREEZES = 2;
 
 // The local calendar-day number for a timestamp (days since the epoch, local tz).

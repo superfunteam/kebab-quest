@@ -1,7 +1,7 @@
 import React from 'react';
 import { MonoIcon } from '../lib/sprites.jsx';
 import { titleShadow } from '../lib/theme.js';
-import { computeStreak } from '../lib/data.js';
+import { computeStreak, TRIP_LABEL } from '../lib/data.js';
 
 export function StreakScreen({ theme, voice, days, tripDays, freezes, onFreeze }) {
   const T = theme;
@@ -53,8 +53,9 @@ export function StreakScreen({ theme, voice, days, tripDays, freezes, onFreeze }
       </div>
 
       {/* day grid */}
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: 9, color: T.gold, marginBottom: 11 }}>
-        ▶ TRIP CALENDAR
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 11 }}>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: 9, color: T.gold }}>▶ TRIP CALENDAR</span>
+        <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: T.muted, letterSpacing: 1 }}>{TRIP_LABEL}</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 7, marginBottom: 22 }}>
         {Array.from({ length: tripDays }).map((_, i) => {

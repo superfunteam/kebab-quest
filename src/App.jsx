@@ -297,10 +297,7 @@ export default function App() {
           playerName={store.playerName}
           playerAvatar={store.playerAvatar}
           onClaimIdentity={store.claimIdentity}
-          tripCode={store.tripCode}
-          onTripCodeChange={store.setTripCode}
-          tripDays={store.tripDays}
-          onTripDaysChange={store.setTripDays}
+          isAdmin={store.playerName === 'CLARK'}
           crew={store.crew}
           onCrewChange={store.updateCrew}
           online={store.online}
@@ -311,7 +308,7 @@ export default function App() {
           onSync={store.sync}
           onShowBoot={() => { setTweaksOpen(false); store.showBoot(); }}
           onShowOnboard={() => { setTweaksOpen(false); store.showOnboard(); }}
-          onReset={() => { if (confirm('Wipe everything — chain, streaks, scores — and start a brand-new trip? You get a fresh trip code to share. (Your name & avatar stay.)')) store.resetGame(); }}
+          onReset={() => { if (confirm("Wipe ALL kebabs for the WHOLE pod — chain, streaks, scores — and clear the shared server. This can't be undone. (Your name & avatar stay.)")) store.resetGame(); }}
           onClose={() => setTweaksOpen(false)}
         />
       )}

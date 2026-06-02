@@ -78,23 +78,30 @@ picks their name and a pixel avatar, and that's stored on the device
 Tweaks (gear) → **Playing as**.
 
 **Log on behalf of anyone.** Eating with friends who aren't on their phones? After
-you tap EAT KEBAB, the detail sheet has a **WHO ATE IT?** picker — tag the kebab to
-any pod member and it counts for them (their score, their avatar on the chain/log).
-Your own personal streak only counts kebabs you logged as yourself.
+you tap EAT KEBAB, the **WHO ATE IT?** control (collapsed to just you by default)
+expands so you can tag the kebab to any pod member — it counts for **them** (their
+score, streak, and avatar on the chain/log), bidirectionally, on every device. Your
+own streak only counts kebabs logged as yourself.
 
 Avatars ride along on each kebab event, so once someone logs on their own phone the
 whole pod sees their chosen face — no extra profile sync needed.
 
 ## Pod sync — how to use
 
-On each phone:
+There's nothing to set up. The whole pod shares **one fixed trip** (`TRIP_CODE` in
+`src/lib/data.js`) — no codes to type. On each phone:
 
 1. Open the app → tap PRESS START → pick your **name + avatar** → HOW TO PLAY → START.
-2. Tap the **gear icon** (top-left) → **Tweaks panel**.
-3. **Trip code** → one of you types a fresh code (e.g. `BALKAN26`); everyone else types the *same* code. That's the shared backend partition.
-4. (Optional) edit the **Pod roster** if someone's missing or you want different colors.
 
-From then on, every `EAT KEBAB` tap on any phone shows up on everyone's HQ / CHAIN / POD / LOG within ~25 seconds (or instantly when the syncing phone is online).
+That's it. Every `EAT KEBAB` tap on any phone shows up on everyone's HQ / CHAIN / POD /
+LOG within ~25 seconds (or instantly when the logging phone is online). The edge
+function upserts each kebab by id with **optimistic concurrency (etag CAS)**, so two
+phones logging at the same instant never clobber each other.
+
+**Admin (Clark only).** When the device's identity is `CLARK`, the Tweaks panel grows
+a **Clark Zone**: sync status/debug, the pod roster editor, and **Reset all kebabs**
+(which wipes the shared server log for the whole pod). Everyone else just sees palette
+/ scanlines / CRT / voice, the name picker, and title/how-to-play.
 
 ## Project layout
 

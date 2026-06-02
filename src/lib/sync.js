@@ -28,6 +28,18 @@ export async function syncOnce({ tripCode, kebabs, lastSyncTs, signal }) {
   return await res.json();
 }
 
+// Clark-only "reset all kebabs": wipe the shared trip log on the server.
+export async function resetTripServer(tripCode) {
+  if (!tripCode) return;
+  const res = await fetch(SYNC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tripCode, reset: true }),
+  });
+  if (!res.ok) throw new Error(`reset failed: ${res.status}`);
+  return await res.json();
+}
+
 // Merge two arrays of kebab events. Dedupe by id; the higher "version" wins, where
 // version = updatedAt (set on edit/delete) falling back to ts. This lets edits and
 // deletions (tombstones) override the server's older copy.

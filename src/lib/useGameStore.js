@@ -5,9 +5,9 @@
 // Keeping that in one place makes the offline/online merge logic trivial.
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { read, write, generateTripCode, uuid } from './storage.js';
-import { syncOnce, mergeFeed, sanitizeForSync, nextBackoff } from './sync.js';
-import { DEFAULT_CREW, TRIP_DAYS, FREEZES, streakFromFeed, buildDaysFromFeed, computeStreak, localDayNum } from './data.js';
+import { read, write, uuid } from './storage.js';
+import { syncOnce, mergeFeed, sanitizeForSync, nextBackoff, resetTripServer } from './sync.js';
+import { DEFAULT_CREW, TRIP_CODE, TRIP_DAYS, FREEZES, streakFromFeed, buildDaysFromFeed, computeStreak, localDayNum } from './data.js';
 
 // Defaults match the design's final state: Game Boy palette, clean LCD (no
 // scanlines/CRT — those are arcade/TV effects, not handheld). All four palettes
@@ -20,7 +20,6 @@ const TWEAK_DEFAULTS = {
 };
 
 function loadInitial() {
-  const tripCode = read('tripCode') || generateTripCode();
   const settings = { ...TWEAK_DEFAULTS, ...(read('settings') || {}) };
   const playerName = read('playerName') || '';
   const playerAvatar = read('playerAvatar', 1);
@@ -28,7 +27,6 @@ function loadInitial() {
   const crew = read('crew') || DEFAULT_CREW.map(c => ({ ...c }));
   const frozenDays = read('frozenDays', []);
   const freezes = read('freezes', FREEZES);
-  const tripDays = read('tripDays', TRIP_DAYS);
   const lastSyncTs = read('lastSyncTs', 0);
   const phase = (() => {
     const booted = read('booted', false);
@@ -36,13 +34,13 @@ function loadInitial() {
     return booted ? (onboarded ? 'play' : 'onboard') : 'boot';
   })();
   const eatConfirmed = read('eatConfirmed', false);
-  return { tripCode, settings, playerName, playerAvatar, feed, crew, frozenDays, freezes, tripDays, lastSyncTs, phase, eatConfirmed };
+  return { settings, playerName, playerAvatar, feed, crew, frozenDays, freezes, lastSyncTs, phase, eatConfirmed };
 }
 
 export function useGameStore() {
   const initial = useRef(loadInitial()).current;
 
-  const [tripCode, setTripCode] = useState(initial.tripCode);
+  const tripCode = TRIP_CODE; // single shared trip — everyone on the main pod
   const [settings, setSettingsRaw] = useState(initial.settings);
   const [playerName, setPlayerName] = useState(initial.playerName);
   const [playerAvatar, setPlayerAvatar] = useState(initial.playerAvatar);
@@ -50,7 +48,7 @@ export function useGameStore() {
   const [crew, setCrew] = useState(initial.crew);
   const [frozenDays, setFrozenDays] = useState(initial.frozenDays);
   const [freezes, setFreezes] = useState(initial.freezes);
-  const [tripDays, setTripDays] = useState(initial.tripDays);
+  const tripDays = TRIP_DAYS; // fixed trip length (Jun 4–21)
   const [lastSyncTs, setLastSyncTs] = useState(initial.lastSyncTs);
   const [phase, setPhase] = useState(initial.phase);
   const [eatConfirmed, setEatConfirmed] = useState(initial.eatConfirmed);
@@ -60,7 +58,6 @@ export function useGameStore() {
 
   // ── persistence: every mutation drops to localStorage immediately
   // Block-bodied so the boolean return from write() isn't treated as a cleanup fn.
-  useEffect(() => { write('tripCode', tripCode); }, [tripCode]);
   useEffect(() => { write('settings', settings); }, [settings]);
   useEffect(() => { write('playerName', playerName); }, [playerName]);
   useEffect(() => { write('playerAvatar', playerAvatar); }, [playerAvatar]);
@@ -68,7 +65,6 @@ export function useGameStore() {
   useEffect(() => { write('crew', crew); }, [crew]);
   useEffect(() => { write('frozenDays', frozenDays); }, [frozenDays]);
   useEffect(() => { write('freezes', freezes); }, [freezes]);
-  useEffect(() => { write('tripDays', tripDays); }, [tripDays]);
   useEffect(() => { write('lastSyncTs', lastSyncTs); }, [lastSyncTs]);
   useEffect(() => { write('eatConfirmed', eatConfirmed); }, [eatConfirmed]);
 
@@ -329,15 +325,15 @@ export function useGameStore() {
   // A true wipe. The key move is a fresh trip code: the old code's events stay
   // on the server (untouched), but this device starts on a brand-new, empty
   // partition — so the heartbeat sync can't pull the old chain/scores back.
+  // Clark-only. Wipes the whole pod: clears the shared server log, then local.
   const resetGame = useCallback(() => {
+    resetTripServer(tripCode).catch(() => {});
     setCrew(DEFAULT_CREW.map(c => ({ ...c })));
     setFeed([]);
     setFrozenDays([]);
     setFreezes(FREEZES);
-    setTripDays(TRIP_DAYS);
     setLastSyncTs(0);
-    setTripCode(generateTripCode());
-  }, []);
+  }, [tripCode]);
 
   const updateCrew = useCallback((nextCrew) => setCrew(nextCrew), []);
 
@@ -348,7 +344,7 @@ export function useGameStore() {
     // derived
     groupScore, todayCount, you, youStreak,
     // actions
-    setTripCode, setTweak, claimIdentity, updateCrew, setTripDays,
+    setTweak, claimIdentity, updateCrew,
     logKebab, saveKebab, editKebab, deleteKebab, useFreeze, sync, confirmEat,
     markBooted, finishOnboard, showBoot, showOnboard, resetGame,
   };
