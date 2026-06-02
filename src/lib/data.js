@@ -29,50 +29,75 @@ export const SEED_FEED = [];
 export const TRIP_DAYS = 14;
 export const FREEZES = 2;
 
-// Your personal day grid — the last entry is "today". Starts with just today, empty.
-export const YOU_DAYS = [{ count: 0 }];
+// The local calendar-day number for a timestamp (days since the epoch, local tz).
+export function localDayNum(ts) {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return Math.round(d.getTime() / 86400000);
+}
 
-export function computeStreak(days) {
-  let cur = 0;
-  for (let i = days.length - 1; i >= 0; i--) {
-    if (days[i].count > 0 || days[i].frozen) cur++; else break;
+// Current streak for ANY player, derived purely from the shared feed: consecutive
+// local days (through today, or yesterday if they haven't eaten yet today) on which
+// they have >=1 kebab — OR a frozen/cheat day. Because it reads the feed, a kebab
+// logged FOR someone by a friend counts toward THAT person's streak, on every device.
+// `frozenDays` (epoch-day numbers) only applies to "you"; others have no local freezes.
+export function streakFromFeed(feed, name, frozenDays) {
+  const frozen = frozenDays instanceof Set ? frozenDays : new Set(frozenDays || []);
+  const ate = new Set();
+  for (const f of feed) {
+    if (!f.deleted && f.player === name && f.ts) ate.add(localDayNum(f.ts));
   }
+  if (!ate.size && !frozen.size) return 0;
+  const active = (d) => ate.has(d) || frozen.has(d);
+  const today = localDayNum(Date.now());
+  let start = active(today) ? today : (active(today - 1) ? today - 1 : null);
+  if (start == null) return 0;
+  let streak = 0;
+  let d = start;
+  while (active(d)) { streak++; d--; }
+  return streak;
+}
+
+// Build the personal day-grid (for the STREAK calendar) straight from the feed:
+// one cell per calendar day from your first kebab through today, each with your
+// kebab count that day + whether it's frozen. Last cell is always today.
+export function buildDaysFromFeed(feed, name, frozenDays = [], tripDays = 14) {
+  const frozen = new Set(frozenDays);
+  const ateByDay = new Map();
+  for (const f of feed) {
+    if (f.deleted || f.player !== name || !f.ts) continue;
+    const d = localDayNum(f.ts);
+    ateByDay.set(d, (ateByDay.get(d) || 0) + 1);
+  }
+  const today = localDayNum(Date.now());
+  const marked = [...ateByDay.keys(), ...frozen];
+  const firstDay = marked.length ? Math.min(...marked, today) : today;
+  const span = today - firstDay + 1;
+  const len = Math.max(1, Math.min(span, tripDays));
+  const start = today - len + 1; // keep "today" as the final cell
+  const days = [];
+  for (let i = 0; i < len; i++) {
+    const d = start + i;
+    days.push({ count: ateByDay.get(d) || 0, frozen: frozen.has(d) });
+  }
+  return days;
+}
+
+// Stats for the personal grid. cur uses the same today-or-yesterday rule as
+// streakFromFeed so the STREAK tab and the HQ panel always agree.
+export function computeStreak(days) {
+  const active = (i) => i >= 0 && i < days.length && (days[i].count > 0 || days[i].frozen);
+  const n = days.length;
+  let start = active(n - 1) ? n - 1 : (active(n - 2) ? n - 2 : -1);
+  let cur = 0;
+  if (start >= 0) { let i = start; while (active(i)) { cur++; i--; } }
   let longest = 0;
   let run = 0;
   days.forEach(d => {
-    if (d.count > 0 || d.frozen) {
-      run++;
-      longest = Math.max(longest, run);
-    } else {
-      run = 0;
-    }
+    if (d.count > 0 || d.frozen) { run++; longest = Math.max(longest, run); }
+    else run = 0;
   });
   const kebabs = days.reduce((s, d) => s + d.count, 0);
   const eaten = days.filter(d => d.count > 0).length;
   return { cur, longest, kebabs, eaten };
-}
-
-// Streak for any player, derived purely from the shared feed: consecutive local
-// days (through today, or yesterday if they haven't eaten yet today) with >=1
-// kebab. Used for everyone except "you" (whose streak comes from the day grid,
-// which also tracks freezes / cheat days).
-export function streakFromFeed(feed, name) {
-  const daysWith = new Set();
-  for (const f of feed) {
-    if (f.player === name && f.ts) daysWith.add(localDayNum(f.ts));
-  }
-  if (!daysWith.size) return 0;
-  const today = localDayNum(Date.now());
-  let start = daysWith.has(today) ? today : (daysWith.has(today - 1) ? today - 1 : null);
-  if (start == null) return 0;
-  let streak = 0;
-  let d = start;
-  while (daysWith.has(d)) { streak++; d--; }
-  return streak;
-}
-
-function localDayNum(ts) {
-  const d = new Date(ts);
-  d.setHours(0, 0, 0, 0);
-  return Math.round(d.getTime() / 86400000);
 }

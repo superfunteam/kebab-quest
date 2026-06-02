@@ -18,6 +18,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
   const [ccField, setCcField] = useState('');
   const [photo, setPhoto] = useState(false);
   const [who, setWho] = useState(youName || '');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -42,6 +43,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
       setPhoto(false);
       setWho(youName || (crew[0] && crew[0].name) || '');
     }
+    setPickerOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editKebab && editKebab.id]);
 
@@ -236,39 +238,71 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
           />
         </div>
 
-        {/* WHO ATE IT — attribute / re-attribute to any pod member */}
+        {/* WHO ATE IT — collapsed to just you; expand only to log for a friend */}
         <div style={{ marginBottom: 22 }}>
           {label('Who ate it?')}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {crew.map(c => {
-              const on = c.name === who;
-              const isYou = c.name === youName;
-              return (
-                <button
-                  key={c.name}
-                  onClick={() => setWho(c.name)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 7,
-                    padding: '5px 9px 5px 5px',
-                    border: '2px solid ' + (on ? T.gold : T.line),
-                    background: on ? T.surf2 : T.surf,
-                    cursor: 'pointer',
-                    boxShadow: on ? 'none' : `0 3px 0 ${T.bg0}`,
-                  }}
-                >
-                  <Avatar n={c.avatar} size={22} theme={T} borderColor={on ? T.gold : T.line} />
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, color: on ? T.gold : T.text }}>
-                    {c.name}{isYou ? ' ★' : ''}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {forSomeoneElse && (
-            <div style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: T.green, marginTop: 9 }}>
-              ▶ {isEdit ? 'This kebab belongs to' : 'Logging this one for'} {who}.
+          {!pickerOpen ? (
+            <div>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 9,
+                  maxWidth: '100%',
+                  padding: '7px 12px 7px 7px',
+                  border: '2px solid ' + T.gold,
+                  background: T.surf2,
+                }}
+              >
+                <Avatar n={(crew.find(c => c.name === who) || {}).avatar} size={28} theme={T} borderColor={T.gold} />
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 17, fontWeight: 700, color: T.gold, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {who || youName}{who === youName ? ' ★' : ''}
+                </span>
+              </div>
+              <button
+                onClick={() => setPickerOpen(true)}
+                style={{
+                  display: 'block',
+                  background: 'none',
+                  border: 'none',
+                  padding: '11px 0 0',
+                  color: forSomeoneElse ? T.green : T.muted,
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 15,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                {forSomeoneElse ? `▶ Logging for ${who} — tap to change` : '› Need to log a kebab for a friend?'}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {crew.map(c => {
+                const on = c.name === who;
+                const isYou = c.name === youName;
+                return (
+                  <button
+                    key={c.name}
+                    onClick={() => { setWho(c.name); setPickerOpen(false); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 7,
+                      padding: '5px 9px 5px 5px',
+                      border: '2px solid ' + (on ? T.gold : T.line),
+                      background: on ? T.surf2 : T.surf,
+                      cursor: 'pointer',
+                      boxShadow: on ? 'none' : `0 3px 0 ${T.bg0}`,
+                    }}
+                  >
+                    <Avatar n={c.avatar} size={22} theme={T} borderColor={on ? T.gold : T.line} />
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, color: on ? T.gold : T.text }}>
+                      {c.name}{isYou ? ' ★' : ''}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

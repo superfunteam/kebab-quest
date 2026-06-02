@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { read, write, generateTripCode, uuid } from './storage.js';
 import { syncOnce, mergeFeed, sanitizeForSync, nextBackoff } from './sync.js';
-import { DEFAULT_CREW, TRIP_DAYS, FREEZES, YOU_DAYS, streakFromFeed } from './data.js';
+import { DEFAULT_CREW, TRIP_DAYS, FREEZES, streakFromFeed, buildDaysFromFeed, computeStreak, localDayNum } from './data.js';
 
 // Defaults match the design's final state: Game Boy palette, clean LCD (no
 // scanlines/CRT — those are arcade/TV effects, not handheld). All four palettes
@@ -26,7 +26,7 @@ function loadInitial() {
   const playerAvatar = read('playerAvatar', 1);
   const feed = read('feed') || [];
   const crew = read('crew') || DEFAULT_CREW.map(c => ({ ...c }));
-  const days = read('days') || YOU_DAYS.map(d => ({ ...d }));
+  const frozenDays = read('frozenDays', []);
   const freezes = read('freezes', FREEZES);
   const tripDays = read('tripDays', TRIP_DAYS);
   const lastSyncTs = read('lastSyncTs', 0);
@@ -36,7 +36,7 @@ function loadInitial() {
     return booted ? (onboarded ? 'play' : 'onboard') : 'boot';
   })();
   const eatConfirmed = read('eatConfirmed', false);
-  return { tripCode, settings, playerName, playerAvatar, feed, crew, days, freezes, tripDays, lastSyncTs, phase, eatConfirmed };
+  return { tripCode, settings, playerName, playerAvatar, feed, crew, frozenDays, freezes, tripDays, lastSyncTs, phase, eatConfirmed };
 }
 
 export function useGameStore() {
@@ -48,7 +48,7 @@ export function useGameStore() {
   const [playerAvatar, setPlayerAvatar] = useState(initial.playerAvatar);
   const [feed, setFeed] = useState(initial.feed);
   const [crew, setCrew] = useState(initial.crew);
-  const [days, setDays] = useState(initial.days);
+  const [frozenDays, setFrozenDays] = useState(initial.frozenDays);
   const [freezes, setFreezes] = useState(initial.freezes);
   const [tripDays, setTripDays] = useState(initial.tripDays);
   const [lastSyncTs, setLastSyncTs] = useState(initial.lastSyncTs);
@@ -66,7 +66,7 @@ export function useGameStore() {
   useEffect(() => { write('playerAvatar', playerAvatar); }, [playerAvatar]);
   useEffect(() => { write('feed', feed); }, [feed]);
   useEffect(() => { write('crew', crew); }, [crew]);
-  useEffect(() => { write('days', days); }, [days]);
+  useEffect(() => { write('frozenDays', frozenDays); }, [frozenDays]);
   useEffect(() => { write('freezes', freezes); }, [freezes]);
   useEffect(() => { write('tripDays', tripDays); }, [tripDays]);
   useEffect(() => { write('lastSyncTs', lastSyncTs); }, [lastSyncTs]);
@@ -168,13 +168,13 @@ export function useGameStore() {
   // but are hidden from every count, screen and streak.
   const visibleFeed = useMemo(() => feed.filter(k => !k.deleted), [feed]);
 
-  const youStreak = useMemo(() => {
-    let cur = 0;
-    for (let i = days.length - 1; i >= 0; i--) {
-      if (days[i].count > 0 || days[i].frozen) cur++; else break;
-    }
-    return cur;
-  }, [days]);
+  // Your personal calendar + streak come from the feed now, so a kebab a friend
+  // logs for you counts on YOUR streak too (and one you log for them counts on theirs).
+  const days = useMemo(
+    () => buildDaysFromFeed(visibleFeed, playerName, frozenDays, tripDays),
+    [visibleFeed, playerName, frozenDays, tripDays]
+  );
+  const youStreak = useMemo(() => computeStreak(days).cur, [days]);
 
   const crewView = useMemo(() => {
     // Recompute each player's kebab count, streak and avatar from the live feed.
@@ -235,12 +235,6 @@ export function useGameStore() {
       pending: true,
     };
     setFeed(prev => [kebab, ...prev]);
-    setDays(prev => {
-      const n = prev.map(x => ({ ...x }));
-      const t = n.length - 1;
-      n[t] = { ...n[t], count: (n[t].count || 0) + 1, missed: false };
-      return n;
-    });
     return kebab;
   }, [visibleFeed, playerName, playerAvatar]);
 
@@ -264,14 +258,6 @@ export function useGameStore() {
       }
       return next;
     }));
-    if (newPlayer && newPlayer !== playerName) {
-      setDays(prev => {
-        const n = prev.map(x => ({ ...x }));
-        const t = n.length - 1;
-        if (n[t] && n[t].count > 0) n[t] = { ...n[t], count: n[t].count - 1 };
-        return n;
-      });
-    }
   }, [crew, playerName]);
 
   // Edit any logged kebab. `updatedAt` + pending make the change re-sync, and the
@@ -303,12 +289,8 @@ export function useGameStore() {
   }, []);
 
   const useFreeze = useCallback(() => {
-    setDays(prev => {
-      const n = prev.map(x => ({ ...x }));
-      const t = n.length - 1;
-      if (n[t].count === 0) n[t] = { ...n[t], frozen: true, missed: false };
-      return n;
-    });
+    const today = localDayNum(Date.now());
+    setFrozenDays(prev => prev.includes(today) ? prev : [...prev, today]);
     setFreezes(f => Math.max(0, f - 1));
   }, []);
 
@@ -350,7 +332,7 @@ export function useGameStore() {
   const resetGame = useCallback(() => {
     setCrew(DEFAULT_CREW.map(c => ({ ...c })));
     setFeed([]);
-    setDays(YOU_DAYS.map(d => ({ ...d })));
+    setFrozenDays([]);
     setFreezes(FREEZES);
     setTripDays(TRIP_DAYS);
     setLastSyncTs(0);
