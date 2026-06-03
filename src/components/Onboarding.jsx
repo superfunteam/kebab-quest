@@ -94,11 +94,9 @@ export function Onboarding({ theme, crew, claims, playerName, playerAvatar, onCl
   };
 
   const steps = [
-    { icon: 'coin',  title: 'TAP TO EAT',       body: 'Smash the kebab button every time you eat one. +1 to the POD SCORE — instantly.' },
-    { icon: 'flame', title: 'KEEP IT LIT',      body: 'Eat at least one a day to grow your personal streak. Miss a day and it resets.' },
-    { icon: 'snow',  title: 'BANK A CHEAT DAY', body: 'Out of luck? Burn a streak freeze to save a missed day and keep the chain alive.' },
-    { icon: 'crew',  title: 'LOG FOR ANYONE',   body: "Eating with friends who aren't on their phone? When you log, just tag whose kebab it was." },
-    { icon: 'crown', title: 'BEAT THE POD',     body: 'Climb the leaderboard. One pod, many kebabs — the last day is the final boss.' },
+    { icon: 'coin',  accent: T.gold, title: 'SMASH TO SCORE', body: 'Ate a kebab? Smash the button. +1 to the pod, instantly.' },
+    { icon: 'flame', accent: T.red,  title: 'KEEP IT LIT',     body: 'One a day keeps your streak alive. Stuck? Burn a freeze.' },
+    { icon: 'crown', accent: T.blue, title: 'BEAT THE POD',    body: "Log for anyone at the table. Climb the board — last day's the boss." },
   ];
 
   const wrap = {
@@ -251,40 +249,61 @@ export function Onboarding({ theme, crew, claims, playerName, playerAvatar, onCl
           </div>
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 8px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '6px 20px 8px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {steps.map((s, i) => (
           <div
             key={i}
             style={{
               display: 'flex',
-              gap: 13,
-              alignItems: 'flex-start',
+              gap: 15,
+              alignItems: 'center',
               background: T.surf,
-              border: '2px solid ' + T.line,
+              border: '2px solid ' + s.accent,
               boxShadow: `0 4px 0 ${T.bg0}`,
-              padding: 13,
+              padding: '16px 14px',
             }}
           >
             <div
               style={{
-                width: 42,
-                height: 42,
+                width: 52,
+                height: 52,
                 flexShrink: 0,
+                position: 'relative',
                 background: T.bg0,
-                border: '2px solid ' + T.gold,
+                border: '2px solid ' + s.accent,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                boxShadow: `0 0 10px ${s.accent}`,
               }}
             >
-              <MonoIcon name={s.icon} size={22} color={T.gold} />
+              <MonoIcon name={s.icon} size={26} color={s.accent} />
+              {/* level badge — gives each rule that pick-a-stage arcade feel */}
+              <span
+                style={{
+                  position: 'absolute',
+                  top: -9,
+                  left: -9,
+                  width: 20,
+                  height: 20,
+                  background: T.bg0,
+                  border: '2px solid ' + s.accent,
+                  fontFamily: 'var(--font-display)',
+                  fontSize: 9,
+                  color: s.accent,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {i + 1}
+              </span>
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 9, color: T.green }}>{i + 1}</span>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 10, color: T.text }}>{s.title}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 12, color: s.accent, textShadow: `1px 1px 0 ${T.bg0}` }}>
+                {s.title}
               </div>
-              <div style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: T.muted, marginTop: 6, lineHeight: 1.35 }}>
+              <div style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: T.muted, marginTop: 7, lineHeight: 1.35 }}>
                 {s.body}
               </div>
             </div>
