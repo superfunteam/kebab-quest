@@ -6,7 +6,10 @@ export function CrewScreen({ theme, crew, feed, groupScore, todayCount }) {
   const T = theme;
   const ranked = [...crew].sort((a, b) => b.kebabs - a.kebabs);
   const maxK = Math.max(1, ...crew.map(c => c.kebabs));
-  const king = [...crew].sort((a, b) => b.streak - a.streak)[0];
+  // The crowned player (longest *active* streak). crewView only sets `king` once
+  // someone actually has a streak, so the callout stays hidden on day one when
+  // the whole pod is still at zero — no bogus "0 days" king.
+  const king = crew.find(c => c.king);
   const allRatings = feed.filter(f => f.rating).map(f => f.rating);
   const avg = allRatings.length ? (allRatings.reduce((s, r) => s + r, 0) / allRatings.length) : 0;
 
