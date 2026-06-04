@@ -289,10 +289,43 @@ export function avatarUrl(n) {
   return `/avatars/Icon${Math.round(i)}.png`;
 }
 
-// A player's pixel-art face. Falls back to a generic frame if the image is missing.
+// A player's pixel-art face. Pass `n == null` for a player who hasn't picked an
+// avatar yet — we render a neutral "?" placeholder instead of inventing a face.
 export function Avatar({ n, size = 32, theme, style, borderColor }) {
   const T = theme;
   const bc = borderColor || (T ? T.line : '#000');
+  const frame = {
+    display: 'block',
+    width: size,
+    height: size,
+    imageRendering: 'pixelated',
+    objectFit: 'cover',
+    background: T ? T.bg0 : '#000',
+    border: `2px solid ${bc}`,
+    boxSizing: 'border-box',
+    flexShrink: 0,
+    ...style,
+  };
+
+  // No avatar chosen yet → empty slot, never a default portrait.
+  if (n == null) {
+    return (
+      <div style={{ ...frame, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: Math.max(7, Math.round(size * 0.42)),
+            color: T ? T.muted : '#888',
+            lineHeight: 1,
+            opacity: 0.7,
+          }}
+        >
+          ?
+        </span>
+      </div>
+    );
+  }
+
   return (
     <img
       src={avatarUrl(n)}
@@ -300,18 +333,7 @@ export function Avatar({ n, size = 32, theme, style, borderColor }) {
       height={size}
       alt=""
       draggable={false}
-      style={{
-        display: 'block',
-        width: size,
-        height: size,
-        imageRendering: 'pixelated',
-        objectFit: 'cover',
-        background: T ? T.bg0 : '#000',
-        border: `2px solid ${bc}`,
-        boxSizing: 'border-box',
-        flexShrink: 0,
-        ...style,
-      }}
+      style={frame}
     />
   );
 }
