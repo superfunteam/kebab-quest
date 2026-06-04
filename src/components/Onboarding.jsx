@@ -94,11 +94,9 @@ export function Onboarding({ theme, crew, claims, playerName, playerAvatar, onCl
   };
 
   const steps = [
-    { icon: 'coin',  title: 'TAP TO EAT',       body: 'Smash the kebab button every time you eat one. +1 to the POD SCORE — instantly.' },
-    { icon: 'flame', title: 'KEEP IT LIT',      body: 'Eat at least one a day to grow your personal streak. Miss a day and it resets.' },
-    { icon: 'snow',  title: 'BANK A CHEAT DAY', body: 'Out of luck? Burn a streak freeze to save a missed day and keep the chain alive.' },
-    { icon: 'crew',  title: 'LOG FOR ANYONE',   body: "Eating with friends who aren't on their phone? When you log, just tag whose kebab it was." },
-    { icon: 'crown', title: 'BEAT THE POD',     body: 'Climb the leaderboard. One pod, many kebabs — the last day is the final boss.' },
+    { icon: 'coin',  title: 'TAP TO EAT',     body: 'Smash the kebab button every time you eat one — +1 to the POD SCORE, instantly. With a friend? Tag whose kebab it was.' },
+    { icon: 'flame', title: 'KEEP YOUR STREAK', body: 'Eat at least one a day to grow your streak. Miss a day and it resets — or use a freebie to save it.' },
+    { icon: 'crown', title: 'BEAT THE POD',    body: 'Climb the leaderboard. One pod, many kebabs — the last day is the final boss.' },
   ];
 
   const wrap = {
