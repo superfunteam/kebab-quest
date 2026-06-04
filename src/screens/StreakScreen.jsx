@@ -130,7 +130,7 @@ export function StreakScreen({ theme, voice, days, tripDays, freezes, onFreeze }
         {cell('CURRENT', s.cur, 'flame', T.gold)}
         {cell('LONGEST', s.longest, 'crown', T.blue)}
         {cell('KEBABS', s.kebabs, 'coin', T.green)}
-        {cell('FREEZES', freezes, 'snow', T.blue)}
+        {cell('FREEBIES', freezes, 'snow', T.blue)}
       </div>
 
       {/* freeze mechanic */}
@@ -149,10 +149,10 @@ export function StreakScreen({ theme, voice, days, tripDays, freezes, onFreeze }
         <MonoIcon name="snow" size={24} color={T.blue} style={{ marginTop: 2, flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 8, color: T.blue }}>
-            STREAK FREEZE × {freezes}
+            FREEBIE × {freezes}
           </div>
           <div style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: T.text, marginTop: 5, lineHeight: 1.3 }}>
-            Burn one to save a missed day. Cheat days keep the chain alive.
+            Use a freebie to save a missed day and keep your streak alive.
           </div>
         </div>
         <button
@@ -175,7 +175,7 @@ export function StreakScreen({ theme, voice, days, tripDays, freezes, onFreeze }
             opacity: (freezes < 1 || todayEaten) ? 0.6 : 1,
           }}
         >
-          {todayEaten ? 'SAFE' : 'FREEZE\nTODAY'}
+          {todayEaten ? 'SAFE' : 'USE\nFREEBIE'}
         </button>
       </div>
     </div>

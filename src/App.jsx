@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { makeTheme, VOICE, POW_WORDS } from './lib/theme.js';
 import { useGameStore } from './lib/useGameStore.js';
+import { read, write } from './lib/storage.js';
 import { sfx } from './lib/sound.js';
 
 import { BootScreen } from './components/BootScreen.jsx';
@@ -11,6 +12,7 @@ import { ConfirmEatModal } from './components/ConfirmEatModal.jsx';
 import { BottomNav } from './components/BottomNav.jsx';
 import { TweaksPanel } from './components/TweaksPanel.jsx';
 import { SyncBadge } from './components/SyncBadge.jsx';
+import { InstallPrompt } from './components/InstallPrompt.jsx';
 import { MonoIcon } from './lib/sprites.jsx';
 
 import { HQScreen } from './screens/HQScreen.jsx';
@@ -34,6 +36,61 @@ export default function App() {
   const [editingKebab, setEditingKebab] = useState(null);
   const pendingKebabRef = useRef(null);
   const comboRef = useRef({ n: 0, t: 0 });
+
+  // ── "Add to home screen" nudge for returning players (2nd / 3rd visit).
+  const [showInstall, setShowInstall] = useState(false);
+  const [canInstall, setCanInstall] = useState(false);
+  const deferredPromptRef = useRef(null);
+  const isIOS = useMemo(() => /iphone|ipad|ipod/i.test(navigator.userAgent || ''), []);
+
+  // Capture Chrome/Android's install prompt so we can fire it from our own modal.
+  useEffect(() => {
+    const onBIP = (e) => { e.preventDefault(); deferredPromptRef.current = e; setCanInstall(true); };
+    const onInstalled = () => {
+      setShowInstall(false);
+      setCanInstall(false);
+      deferredPromptRef.current = null;
+      write('installDismissed', true);
+    };
+    window.addEventListener('beforeinstallprompt', onBIP);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBIP);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
+
+  // Count visits once per load; on a returning player's 2nd or 3rd visit (and
+  // only if not already installed or previously dismissed), nudge them to install.
+  const visitCheckedRef = useRef(false);
+  useEffect(() => {
+    if (visitCheckedRef.current) return;
+    visitCheckedRef.current = true;
+    const standalone =
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true;
+    const visits = (read('visits', 0) || 0) + 1;
+    write('visits', visits);
+    if (standalone || read('installDismissed', false)) return;
+    if (!read('onboarded', false)) return; // returning players only (made a character)
+    if (visits === 2 || visits === 3) {
+      const t = setTimeout(() => setShowInstall(true), 1400);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
+  const handleInstall = async () => {
+    write('installDismissed', true);
+    const dp = deferredPromptRef.current;
+    if (dp) {
+      dp.prompt();
+      try { await dp.userChoice; } catch (_) { /* ignore */ }
+      deferredPromptRef.current = null;
+      setCanInstall(false);
+    }
+    setShowInstall(false);
+  };
+  const dismissInstall = () => { write('installDismissed', true); setShowInstall(false); };
 
   // Keep the sound engine in step with the user's mute preference.
   useEffect(() => { sfx.setEnabled(store.settings.sound !== false); }, [store.settings.sound]);
@@ -295,6 +352,15 @@ export default function App() {
           theme={T}
           onConfirm={handleConfirmEat}
           onCancel={() => setConfirmOpen(false)}
+        />
+
+        <InstallPrompt
+          open={showInstall && store.phase === 'play'}
+          theme={T}
+          canInstall={canInstall}
+          isIOS={isIOS}
+          onInstall={handleInstall}
+          onDismiss={dismissInstall}
         />
 
         {store.phase === 'play' && <BottomNav tab={tab} setTab={changeTab} theme={T} />}

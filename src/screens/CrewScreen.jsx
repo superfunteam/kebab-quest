@@ -61,76 +61,89 @@ export function CrewScreen({ theme, crew, feed, groupScore, todayCount }) {
           <div
             key={p.name}
             style={{
+              display: 'flex',
+              alignItems: 'stretch',
               background: p.you ? T.surf2 : T.surf,
               border: '2px solid ' + (p.you ? T.red : T.line),
               boxShadow: `0 4px 0 ${T.bg0}`,
-              padding: '11px 12px',
+              overflow: 'hidden',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
-              <span
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 13,
-                  color: i === 0 ? T.gold : T.muted,
-                  width: 22,
-                }}
-              >
-                {i + 1}
-              </span>
-              <Avatar n={p.avatar} size={24} theme={T} borderColor={colorOf(T, p.color)} />
-              <span
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 11,
-                  color: T.text,
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  minWidth: 0,
-                  overflow: 'hidden',
-                }}
-              >
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                {p.king && <MonoIcon name="crown" size={12} color={T.gold} />}
-                {p.you && <span style={{ color: T.red, fontSize: 7 }}>P1</span>}
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                <MonoIcon name="flame" size={13} color={T.gold} />
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 10, color: T.gold }}>{p.streak}</span>
+            <div style={{ flex: 1, minWidth: 0, padding: '11px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: 13,
+                    color: i === 0 ? T.gold : T.muted,
+                    width: 22,
+                  }}
+                >
+                  {i + 1}
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: 11,
+                    color: T.text,
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                  {p.king && <MonoIcon name="crown" size={12} color={T.gold} />}
+                  {p.you && <span style={{ color: T.red, fontSize: 7 }}>P1</span>}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                  <MonoIcon name="flame" size={13} color={T.gold} />
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 10, color: T.gold }}>{p.streak}</span>
+                </div>
               </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div
-                style={{
-                  flex: 1,
-                  height: 14,
-                  background: T.bg0,
-                  border: '2px solid ' + T.line,
-                  padding: 2,
-                }}
-              >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div
                   style={{
-                    height: '100%',
-                    width: (p.kebabs / maxK * 100) + '%',
-                    background: colorOf(T, p.color),
-                    transition: 'width .5s steps(8)',
+                    flex: 1,
+                    height: 14,
+                    background: T.bg0,
+                    border: '2px solid ' + T.line,
+                    padding: 2,
                   }}
-                />
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      width: (p.kebabs / maxK * 100) + '%',
+                      background: colorOf(T, p.color),
+                      transition: 'width .5s steps(8)',
+                    }}
+                  />
+                </div>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: 11,
+                    color: colorOf(T, p.color),
+                    width: 24,
+                    textAlign: 'right',
+                  }}
+                >
+                  {p.kebabs}
+                </span>
               </div>
-              <span
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 11,
-                  color: colorOf(T, p.color),
-                  width: 24,
-                  textAlign: 'right',
-                }}
-              >
-                {p.kebabs}
-              </span>
+            </div>
+            {/* Full-height avatar cap on the right — the faces are the fun part. */}
+            <div style={{ flexShrink: 0, alignSelf: 'stretch', display: 'flex', width: 72 }}>
+              <Avatar
+                n={p.avatar}
+                size={72}
+                theme={T}
+                borderColor={colorOf(T, p.color)}
+                style={{ width: 72, height: '100%', borderWidth: 0, borderLeft: '2px solid ' + colorOf(T, p.color) }}
+              />
             </div>
           </div>
         ))}

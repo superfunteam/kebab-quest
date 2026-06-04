@@ -95,7 +95,7 @@ export function Onboarding({ theme, crew, claims, playerName, playerAvatar, onCl
 
   const steps = [
     { icon: 'coin',  title: 'TAP TO EAT',     body: 'Smash the kebab button every time you eat one — +1 to the POD SCORE, instantly. With a friend? Tag whose kebab it was.' },
-    { icon: 'flame', title: 'KEEP YOUR STREAK', body: 'Eat at least one a day to grow your streak. Miss a day and it resets — or burn a freeze to save it.' },
+    { icon: 'flame', title: 'KEEP YOUR STREAK', body: 'Eat at least one a day to grow your streak. Miss a day and it resets — or use a freebie to save it.' },
     { icon: 'crown', title: 'BEAT THE POD',    body: 'Climb the leaderboard. One pod, many kebabs — the last day is the final boss.' },
   ];
 
