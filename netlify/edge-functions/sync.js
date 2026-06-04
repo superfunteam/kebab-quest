@@ -123,6 +123,7 @@ export default async (request, context) => {
   // avatars stay exclusive. One record per name (latest ts wins); avatar
   // ownership goes to the earliest claimer (see resolveClaims).
   const incomingClaim = sanitizeClaim(body?.claim);
+  const releaseName = sanitizeName(body?.releaseClaim);
   let claimsMap = {};
   {
     let wroteC = false;
@@ -141,6 +142,12 @@ export default async (request, context) => {
       if (!Array.isArray(recs)) recs = [];
 
       let changed = false;
+      // "Reset my character": drop this name's claim so the name + avatar free up.
+      if (releaseName) {
+        const before = recs.length;
+        recs = recs.filter(r => r.name !== releaseName);
+        if (recs.length !== before) changed = true;
+      }
       if (incomingClaim) {
         const prev = recs.find(r => r.name === incomingClaim.name);
         // Strictly newer ts → update. Equal/older (e.g. steady heartbeat re-sends,
@@ -250,6 +257,13 @@ function resolveClaims(records) {
     out[c.name] = { name: c.name, avatar: av, ts: c.ts };
   }
   return out;
+}
+
+// Normalize a player name from a release request the same way claims store it.
+function sanitizeName(s) {
+  if (typeof s !== 'string') return null;
+  const name = clip(s, 24).toUpperCase().trim();
+  return name || null;
 }
 
 function sanitizeClaim(c) {

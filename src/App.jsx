@@ -320,6 +320,7 @@ export default function App() {
           onSync={store.sync}
           onShowBoot={() => { setTweaksOpen(false); store.showBoot(); }}
           onShowOnboard={() => { setTweaksOpen(false); store.showOnboard(); }}
+          onResetMe={() => { if (confirm("Reset your character? This device will forget your name & avatar and take you back to the start to pick again. Your logged kebabs stay.")) { setTweaksOpen(false); store.resetMe(); } }}
           onReset={() => { if (confirm("Wipe ALL kebabs for the WHOLE pod — chain, streaks, scores — and clear the shared server. This can't be undone. (Your name & avatar stay.)")) store.resetGame(); }}
           onClose={() => setTweaksOpen(false)}
         />

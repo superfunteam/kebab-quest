@@ -8,12 +8,13 @@
 
 const SYNC_URL = '/api/sync';
 
-export async function syncOnce({ tripCode, kebabs, lastSyncTs, claim, frozen, signal }) {
+export async function syncOnce({ tripCode, kebabs, lastSyncTs, claim, frozen, release, signal }) {
   if (!tripCode) throw new Error('no trip code');
 
   const body = { tripCode, kebabs: kebabs || [], lastSyncTs: lastSyncTs || 0 };
   if (claim) body.claim = claim; // ride-along identity claim (name + avatar)
   if (frozen && Array.isArray(frozen.days) && frozen.days.length) body.frozen = frozen; // streak cheat days
+  if (release) body.releaseClaim = release; // "reset my character": free this name + avatar
 
   const res = await fetch(SYNC_URL, {
     method: 'POST',

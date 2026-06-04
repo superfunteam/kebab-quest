@@ -107,6 +107,9 @@ export function useGameStore() {
   // Always-current trip code, so an in-flight sync can detect a reset mid-request.
   const tripCodeRef = useRef(tripCode);
   useEffect(() => { tripCodeRef.current = tripCode; }, [tripCode]);
+  // A name we're releasing (a "reset my character"): rides along on every sync
+  // until the server confirms it's gone, so the freed name/avatar propagate.
+  const releaseRef = useRef(null);
   // Latest identity claim, so every heartbeat re-publishes who this device is.
   const myClaimRef = useRef(myClaim);
   useEffect(() => { myClaimRef.current = myClaim; }, [myClaim]);
@@ -125,24 +128,35 @@ export function useGameStore() {
     const timer = setTimeout(() => controller.abort(), 15_000);
     const p = (async () => {
       try {
+        const releasing = releaseRef.current;
         const result = await syncOnce({
           tripCode: tc,
           kebabs: pending,
           lastSyncTs,
           claim: myClaimRef.current,
           frozen: myFreezeRef.current,
+          release: releasing,
           signal: controller.signal,
         });
         clearTimeout(timer);
         // If the trip changed during the request (e.g. a reset), drop stale results.
         if (tripCodeRef.current !== tc) return;
+        // Server processed the release → stop re-sending it.
+        if (releasing && releaseRef.current === releasing) releaseRef.current = null;
         // Fold in the pod's streak freezes (cheat days for everyone).
         if (result?.frozen && typeof result.frozen === 'object') {
           setFrozen(curr => mergeFrozen(curr, result.frozen));
         }
-        // Fold in the pod's identity claims (names + exclusive avatars).
+        // Fold in the pod's identity claims (names + exclusive avatars). While a
+        // release is pending, keep that name stripped so a concurrent pull can't
+        // resurrect the identity we're actively clearing.
         if (result?.claims && typeof result.claims === 'object') {
-          setClaims(curr => mergeClaims(curr, result.claims));
+          setClaims(curr => {
+            const merged = mergeClaims(curr, result.claims);
+            const rel = releasing || releaseRef.current;
+            if (rel) delete merged[rel];
+            return merged;
+          });
         }
         const incoming = Array.isArray(result?.kebabs) ? result.kebabs : [];
         // Mark our pushed kebabs as no-longer-pending; merge with anything new.
@@ -251,9 +265,10 @@ export function useGameStore() {
         // Everyone's streak now folds in their synced freezes, so the leaderboard
         // and Streak King read the same on every device.
         streak: isYou ? youStreak : streakFromFeed(visibleFeed, c.name, frozen[c.name] || []),
-        // Prefer a synced claim avatar, then the latest one seen in the feed,
-        // then the roster default — so faces are right even before any kebabs.
-        avatar: isYou ? playerAvatar : (claim?.avatar ?? avatarByPlayer.get(c.name) ?? c.avatar ?? 1),
+        // A face only appears once a player has actually picked one (a synced
+        // claim avatar) or has logged a kebab. Unclaimed roster slots stay
+        // faceless (null → "?" placeholder) instead of showing a default.
+        avatar: isYou ? playerAvatar : (claim?.avatar ?? avatarByPlayer.get(c.name) ?? null),
       };
     });
     // Crown the player with the longest active streak.
@@ -314,13 +329,13 @@ export function useGameStore() {
       }
       if (newPlayer && newPlayer !== k.player) {
         next.player = newPlayer;
-        // Stamp the attributed player's avatar so the crew sees the right face.
-        const m = crew.find(c => c.name === newPlayer);
-        if (m) next.avatar = m.avatar ?? next.avatar;
+        // Stamp the attributed player's OWN picked face — or leave it faceless
+        // if they haven't picked yet (rather than inventing a default).
+        next.avatar = newPlayer === playerName ? playerAvatar : (claims[newPlayer]?.avatar ?? null);
       }
       return next;
     }));
-  }, [crew, playerName]);
+  }, [claims, playerName, playerAvatar]);
 
   // Edit any logged kebab. `updatedAt` + pending make the change re-sync, and the
   // server upserts by id so the edit reaches the rest of the pod.
@@ -337,11 +352,11 @@ export function useGameStore() {
         next.player = newPlayer;
         next.avatar = newPlayer === playerName
           ? playerAvatar
-          : ((crew.find(c => c.name === newPlayer) || {}).avatar ?? next.avatar);
+          : (claims[newPlayer]?.avatar ?? null);
       }
       return next;
     }));
-  }, [crew, playerName, playerAvatar]);
+  }, [claims, playerName, playerAvatar]);
 
   // Soft-delete (tombstone) so the removal syncs and stays gone across devices.
   const deleteKebab = useCallback((id) => {
@@ -413,6 +428,32 @@ export function useGameStore() {
     setLastSyncTs(0);
   }, [tripCode]);
 
+  // "Reset my character" — forget who this device is and start over at the title
+  // screen. Releases our name + avatar on the server (so the slot frees up for
+  // everyone) and re-publishes nothing, so we land back in onboarding clean.
+  // Logged kebabs are attributed by name and are untouched.
+  const resetMe = useCallback(() => {
+    const me = playerName;
+    if (me) {
+      releaseRef.current = me; // ride-along release on the next sync(s)
+      setClaims(prev => {
+        if (!prev[me]) return prev;
+        const next = { ...prev };
+        delete next[me];
+        return next;
+      });
+    }
+    setMyClaim(null);
+    setPlayerName('');
+    setPlayerAvatar(1);
+    setEatConfirmed(false);
+    write('onboarded', false);
+    write('booted', false);
+    setPhase('boot');
+    // Push the release promptly so the freed name/avatar reach the pod.
+    setTimeout(() => { if (navigator.onLine) sync(); }, 50);
+  }, [playerName, sync]);
+
   const updateCrew = useCallback((nextCrew) => setCrew(nextCrew), []);
 
   return {
@@ -424,7 +465,7 @@ export function useGameStore() {
     // actions
     setTweak, claimIdentity, updateCrew,
     logKebab, saveKebab, editKebab, deleteKebab, useFreeze, sync, confirmEat,
-    markBooted, finishOnboard, showBoot, showOnboard, resetGame,
+    markBooted, finishOnboard, showBoot, showOnboard, resetGame, resetMe,
   };
 }
 

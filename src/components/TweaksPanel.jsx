@@ -9,7 +9,7 @@ export function TweaksPanel({
   isAdmin,
   crew, onCrewChange,
   online, syncing, pendingCount, lastSyncTs, syncError, onSync,
-  onShowBoot, onShowOnboard, onReset,
+  onShowBoot, onShowOnboard, onReset, onResetMe,
   onClose,
 }) {
   const T = theme;
@@ -116,6 +116,9 @@ export function TweaksPanel({
         <div style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: T.muted, marginTop: 8, lineHeight: 1.4 }}>
           No password — this device just remembers who you are. You can only switch to players who've claimed their name &amp; avatar; switching takes on their face. To sign up someone new, use “How to play”.
         </div>
+        {onResetMe && (
+          <Button theme={T} onClick={onResetMe} label="Reset my character" danger />
+        )}
 
         {section('LOOK')}
         {row(
