@@ -228,20 +228,36 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
             )}
           </div>
           {hasPhoto && !uploading && (
-            <button
-              onClick={() => { sfx.pop(); setPhoto(''); setPhotoError(''); }}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '9px 0 0',
-                color: T.muted,
-                fontFamily: 'var(--font-body)',
-                fontSize: 15,
-                cursor: 'pointer',
-              }}
-            >
-              ✕ Remove photo
-            </button>
+            <div style={{ display: 'flex', gap: 18, paddingTop: 9 }}>
+              <button
+                onClick={() => { sfx.pop(); fileRef.current && fileRef.current.click(); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: T.green,
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 15,
+                  cursor: 'pointer',
+                }}
+              >
+                ↻ Change photo
+              </button>
+              <button
+                onClick={() => { sfx.pop(); setPhoto(''); setPhotoError(''); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: T.muted,
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 15,
+                  cursor: 'pointer',
+                }}
+              >
+                ✕ Remove photo
+              </button>
+            </div>
           )}
         </div>
 
