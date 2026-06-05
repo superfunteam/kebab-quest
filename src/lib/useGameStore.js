@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { read, write, uuid } from './storage.js';
 import { syncOnce, mergeFeed, mergeClaims, mergeFrozen, sanitizeForSync, nextBackoff, resetTripServer } from './sync.js';
 import { DEFAULT_CREW, TRIP_CODE, TRIP_DAYS, FREEZES, streakFromFeed, buildDaysFromFeed, computeStreak, localDayNum } from './data.js';
+import { isPhotoUrl } from './photos.js';
 
 // Defaults match the design's final state: Game Boy palette, clean LCD (no
 // scanlines/CRT — those are arcade/TV effects, not handheld). All four palettes
@@ -306,7 +307,7 @@ export function useGameStore() {
       price: partial?.price || 0,
       note: partial?.note || '',
       shop: partial?.shop || '',
-      photo: !!partial?.photo,
+      photo: isPhotoUrl(partial?.photo) ? partial.photo : '',
       when: 'TODAY ' + time,
       ts: now,
       pending: true,

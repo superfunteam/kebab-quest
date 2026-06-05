@@ -9,6 +9,10 @@
   path = "/api/sync"
   function = "sync"
 
+[[edge_functions]]
+  path = "/api/photo"
+  function = "photo"
+
 [[headers]]
   for = "/icons/*"
   [headers.values]
