@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { read, write, uuid } from './storage.js';
 import { syncOnce, mergeFeed, mergeClaims, mergeFrozen, sanitizeForSync, nextBackoff, resetTripServer } from './sync.js';
 import { DEFAULT_CREW, TRIP_CODE, TRIP_DAYS, FREEZES, streakFromFeed, buildDaysFromFeed, computeStreak, localDayNum } from './data.js';
+import { isPhotoUrl } from './photos.js';
 
 // Defaults match the design's final state: Game Boy palette, clean LCD (no
 // scanlines/CRT — those are arcade/TV effects, not handheld). All four palettes
@@ -160,10 +161,16 @@ export function useGameStore() {
         }
         const incoming = Array.isArray(result?.kebabs) ? result.kebabs : [];
         // Mark our pushed kebabs as no-longer-pending; merge with anything new.
+        // Only clear the flag for the EXACT version we pushed — if the user edited
+        // the kebab again while this request was in flight (newer updatedAt), keep it
+        // pending so the newer details re-sync instead of being silently dropped.
+        const ver = (k) => (k && (k.updatedAt || k.ts)) || 0;
         setFeed(curr => {
-          const cleared = curr.map(k => k.pending && pending.find(p => p.id === k.id)
-            ? { ...k, pending: false }
-            : k);
+          const cleared = curr.map(k => {
+            if (!k.pending) return k;
+            const pushed = pending.find(p => p.id === k.id);
+            return pushed && ver(pushed) === ver(k) ? { ...k, pending: false } : k;
+          });
           return mergeFeed(cleared, incoming);
         });
         if (result?.ts) setLastSyncTs(result.ts);
@@ -306,7 +313,7 @@ export function useGameStore() {
       price: partial?.price || 0,
       note: partial?.note || '',
       shop: partial?.shop || '',
-      photo: !!partial?.photo,
+      photo: isPhotoUrl(partial?.photo) ? partial.photo : '',
       when: 'TODAY ' + time,
       ts: now,
       pending: true,
@@ -323,7 +330,11 @@ export function useGameStore() {
     const newPlayer = details.player ? details.player.toUpperCase() : null;
     setFeed(prev => prev.map(k => {
       if (k.id !== id) return k;
-      const next = { ...k };
+      // Bump version + re-queue exactly like editKebab. The tap already pushed a
+      // blank kebab (it scored immediately), so without a fresh updatedAt + pending
+      // these details would (a) never re-sync to the crew and (b) lose the merge to
+      // the blank server copy on the next heartbeat — wiping everything the user typed.
+      const next = { ...k, updatedAt: Date.now(), pending: true };
       for (const key of ['rating', 'shop', 'meat', 'price', 'note', 'photo', 'city', 'cc']) {
         if (details[key] !== undefined) next[key] = details[key];
       }

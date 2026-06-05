@@ -2,6 +2,7 @@ import React from 'react';
 import { PixelStars, Avatar } from '../lib/sprites.jsx';
 import { colorOf, formatEuro, titleShadow } from '../lib/theme.js';
 import { sfx } from '../lib/sound.js';
+import { isPhotoUrl } from '../lib/photos.js';
 
 export function LogScreen({ theme, feed, crew, onSelect }) {
   const T = theme;
@@ -96,6 +97,21 @@ export function LogScreen({ theme, feed, crew, onSelect }) {
                 <div style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: T.muted, marginTop: 8, lineHeight: 1.35 }}>
                   "{f.note}"
                 </div>
+              )}
+              {isPhotoUrl(f.photo) && (
+                <img
+                  src={f.photo}
+                  alt="Kebab"
+                  loading="lazy"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    maxHeight: 220,
+                    objectFit: 'cover',
+                    marginTop: 9,
+                    border: '2px solid ' + T.line,
+                  }}
+                />
               )}
             </div>
           </div>

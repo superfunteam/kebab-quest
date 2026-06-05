@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MonoIcon, PixelStars, Avatar } from '../lib/sprites.jsx';
 import { sfx } from '../lib/sound.js';
+import { isPhotoUrl, processAndUpload } from '../lib/photos.js';
 
 // Used for two flows that share the same form:
 //  - LOG (post-tap): a fresh kebab, fields blank → SAVE KEBAB / SKIP.
@@ -17,7 +18,10 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
   const [note, setNote] = useState('');
   const [cityField, setCityField] = useState('');
   const [ccField, setCcField] = useState('');
-  const [photo, setPhoto] = useState(false);
+  const [photo, setPhoto] = useState(''); // URL string of the uploaded image, or ''
+  const [uploading, setUploading] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const fileRef = useRef(null);
   const [who, setWho] = useState(youName || '');
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -31,7 +35,8 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
       setNote(editKebab.note || '');
       setCityField(editKebab.city || '');
       setCcField(editKebab.cc || '');
-      setPhoto(!!editKebab.photo);
+      // Only carry a real, shareable photo URL; drop legacy boolean flags.
+      setPhoto(isPhotoUrl(editKebab.photo) ? editKebab.photo : '');
       setWho(editKebab.player || youName || '');
     } else {
       setRating(0);
@@ -41,9 +46,11 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
       setNote('');
       setCityField('');
       setCcField('');
-      setPhoto(false);
+      setPhoto('');
       setWho(youName || (crew[0] && crew[0].name) || '');
     }
+    setUploading(false);
+    setPhotoError('');
     setPickerOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editKebab && editKebab.id]);
@@ -101,6 +108,30 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
   const save = () => { sfx.success(); onSave(detailFields()); };
   const skip = () => { sfx.pop(); onSave({ player: who }); }; // keep attribution, drop the extra details
   const forSomeoneElse = who && youName && who !== youName;
+  const hasPhoto = isPhotoUrl(photo);
+
+  // Real upload: compress in the browser, POST to /api/photo, stash the returned
+  // URL so the whole crew can load the image. Surfaces a retryable error instead
+  // of ever pretending a photo was added (the old bug just toggled a flag).
+  const onPickPhoto = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // let the user re-pick the same file after a failure
+    if (!file) return;
+    setPhotoError('');
+    setUploading(true);
+    sfx.boink();
+    try {
+      const url = await processAndUpload(file);
+      setPhoto(url);
+      sfx.success();
+    } catch (_) {
+      setPhoto('');
+      setPhotoError('Upload failed — tap to retry');
+      sfx.boink();
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div
@@ -155,27 +186,79 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
 
         <div style={{ marginBottom: 20 }}>
           {label('Evidence')}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: 'none' }}
+            onChange={onPickPhoto}
+          />
           <div
-            onClick={() => { sfx.boink(); setPhoto(!photo); }}
+            onClick={() => { if (!uploading) { sfx.pop(); fileRef.current && fileRef.current.click(); } }}
             style={{
-              height: photo ? 120 : 66,
-              border: '2px dashed ' + (photo ? T.green : T.line),
-              background: photo
-                ? `repeating-linear-gradient(45deg, ${T.surf2}, ${T.surf2} 8px, ${T.surf} 8px, ${T.surf} 16px)`
-                : T.bg0,
+              position: 'relative',
+              minHeight: hasPhoto ? 0 : 66,
+              border: '2px dashed ' + (hasPhoto ? T.green : (photoError ? T.red : T.line)),
+              background: T.bg0,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 10,
-              cursor: 'pointer',
+              cursor: uploading ? 'wait' : 'pointer',
               fontFamily: 'var(--font-body)',
               fontSize: 16,
-              color: photo ? T.green : T.muted,
+              color: hasPhoto ? T.green : (photoError ? T.red : T.muted),
+              overflow: 'hidden',
             }}
           >
-            <MonoIcon name="pin" size={18} color={photo ? T.green : T.muted} />
-            {photo ? 'KEBAB.PNG ✓' : 'ADD PHOTO'}
+            {hasPhoto ? (
+              <img
+                src={photo}
+                alt="Kebab evidence"
+                style={{ display: 'block', width: '100%', maxHeight: 240, objectFit: 'cover' }}
+              />
+            ) : uploading ? (
+              <span>UPLOADING…</span>
+            ) : (
+              <>
+                <MonoIcon name="pin" size={18} color={photoError ? T.red : T.muted} />
+                {photoError || 'ADD PHOTO'}
+              </>
+            )}
           </div>
+          {hasPhoto && !uploading && (
+            <div style={{ display: 'flex', gap: 18, paddingTop: 9 }}>
+              <button
+                onClick={() => { sfx.pop(); fileRef.current && fileRef.current.click(); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: T.green,
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 15,
+                  cursor: 'pointer',
+                }}
+              >
+                ↻ Change photo
+              </button>
+              <button
+                onClick={() => { sfx.pop(); setPhoto(''); setPhotoError(''); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: T.muted,
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 15,
+                  cursor: 'pointer',
+                }}
+              >
+                ✕ Remove photo
+              </button>
+            </div>
+          )}
         </div>
 
         <div style={{ marginBottom: 20 }}>

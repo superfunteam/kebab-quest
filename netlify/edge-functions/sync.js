@@ -322,7 +322,9 @@ function sanitizeKebab(k) {
     price: clampNumber(k.price, 0, 9999),
     note: clip(k.note, 280),
     shop: clip(k.shop, 80),
-    photo: !!k.photo,
+    // photo is a short URL to the blob-backed image store (/api/photo?id=…).
+    // Legacy clients sent a boolean flag; keep only real string URLs.
+    photo: typeof k.photo === 'string' ? clip(k.photo, 512) : '',
     when: clip(k.when, 40),
     ts,
     updatedAt: Number(k.updatedAt) > 0 ? Number(k.updatedAt) : undefined,
