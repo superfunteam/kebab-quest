@@ -190,7 +190,6 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
             ref={fileRef}
             type="file"
             accept="image/*"
-            capture="environment"
             style={{ display: 'none' }}
             onChange={onPickPhoto}
           />
