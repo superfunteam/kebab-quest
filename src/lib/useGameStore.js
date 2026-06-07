@@ -335,7 +335,7 @@ export function useGameStore() {
       // these details would (a) never re-sync to the crew and (b) lose the merge to
       // the blank server copy on the next heartbeat — wiping everything the user typed.
       const next = { ...k, updatedAt: Date.now(), pending: true };
-      for (const key of ['rating', 'shop', 'meat', 'price', 'note', 'photo', 'city', 'cc']) {
+      for (const key of ['rating', 'shop', 'meat', 'price', 'note', 'photo', 'city', 'cc', 'ts', 'when']) {
         if (details[key] !== undefined) next[key] = details[key];
       }
       if (newPlayer && newPlayer !== k.player) {
@@ -355,7 +355,7 @@ export function useGameStore() {
     setFeed(prev => prev.map(k => {
       if (k.id !== id) return k;
       const next = { ...k, updatedAt: Date.now(), pending: true };
-      for (const key of ['rating', 'shop', 'meat', 'price', 'note', 'photo', 'city', 'cc']) {
+      for (const key of ['rating', 'shop', 'meat', 'price', 'note', 'photo', 'city', 'cc', 'ts', 'when']) {
         if (fields[key] !== undefined) next[key] = fields[key];
       }
       // Only touch the face if the kebab is being re-attributed to a different player.
