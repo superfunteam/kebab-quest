@@ -3,6 +3,40 @@ import { MonoIcon, PixelStars, Avatar } from '../lib/sprites.jsx';
 import { sfx } from '../lib/sound.js';
 import { isPhotoUrl, processAndUpload } from '../lib/photos.js';
 
+// Local YYYY-MM-DD for a Date (the value shape a native <input type="date"> wants).
+const toDateStr = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${da}`;
+};
+
+// Which epoch-day a timestamp falls on, in local time (matches data.js/localDayNum).
+const dayNum = (ts) => {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return Math.round(d.getTime() / 86400000);
+};
+
+// Stamp the chosen day onto an existing timestamp, keeping its time-of-day so the
+// kebab still sorts sensibly within that day (and an unchanged date stays put).
+const tsForDate = (dateStr, baseTs) => {
+  const [y, m, da] = dateStr.split('-').map(Number);
+  const base = new Date(baseTs);
+  return new Date(y, m - 1, da, base.getHours(), base.getMinutes(), base.getSeconds(), base.getMilliseconds()).getTime();
+};
+
+// Short feed label: TODAY / YDAY keep the time, older days show the date.
+const whenLabel = (ts) => {
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  const today = dayNum(Date.now());
+  const day = dayNum(ts);
+  if (day === today) return 'TODAY ' + time;
+  if (day === today - 1) return 'YDAY ' + time;
+  return d.toLocaleDateString([], { month: 'short' }).toUpperCase() + ' ' + d.getDate();
+};
+
 // Used for two flows that share the same form:
 //  - LOG (post-tap): a fresh kebab, fields blank → SAVE KEBAB / SKIP.
 //  - EDIT (tap a row in LOG/CHAIN): an existing kebab, fields pre-filled →
@@ -24,6 +58,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
   const fileRef = useRef(null);
   const [who, setWho] = useState(youName || '');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [dateStr, setDateStr] = useState(''); // YYYY-MM-DD (local) of the day it was eaten
 
   useEffect(() => {
     if (!open) return;
@@ -38,6 +73,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
       // Only carry a real, shareable photo URL; drop legacy boolean flags.
       setPhoto(isPhotoUrl(editKebab.photo) ? editKebab.photo : '');
       setWho(editKebab.player || youName || '');
+      setDateStr(toDateStr(new Date(editKebab.ts || Date.now())));
     } else {
       setRating(0);
       setShop('');
@@ -48,6 +84,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
       setCcField('');
       setPhoto('');
       setWho(youName || (crew[0] && crew[0].name) || '');
+      setDateStr(toDateStr(new Date()));
     }
     setUploading(false);
     setPhotoError('');
@@ -92,6 +129,13 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
       note: note.trim(),
       photo,
     };
+    if (dateStr) {
+      // Back-date to the picked day (keeping the original time-of-day) so the kebab
+      // lands on the right day for streaks/day-grid, and shows the right feed label.
+      const ts = tsForDate(dateStr, isEdit ? (editKebab.ts || Date.now()) : Date.now());
+      f.ts = ts;
+      f.when = whenLabel(ts);
+    }
     if (isEdit) {
       // In edit mode always carry city/cc so they can be changed (or cleared back).
       f.city = cityField.trim() || editKebab.city || '';
@@ -109,6 +153,21 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
   const skip = () => { sfx.pop(); onSave({ player: who }); }; // keep attribution, drop the extra details
   const forSomeoneElse = who && youName && who !== youName;
   const hasPhoto = isPhotoUrl(photo);
+
+  // Quick-pick days for the "When did you eat it?" picker: today, yesterday, and
+  // the day before that — plus a native date field for anything older.
+  const today = new Date();
+  const todayStr = toDateStr(today);
+  const dayOptions = [0, 1, 2].map(back => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - back);
+    const value = toDateStr(d);
+    const label = back === 0 ? 'TODAY'
+      : back === 1 ? 'YESTERDAY'
+      : d.toLocaleDateString([], { weekday: 'short' }).toUpperCase() + ' ' + d.getDate();
+    return { value, label };
+  });
+  const isCustomDate = dateStr && !dayOptions.some(o => o.value === dateStr);
 
   // Real upload: compress in the browser, POST to /api/photo, stash the returned
   // URL so the whole crew can load the image. Surfaces a retryable error instead
@@ -388,6 +447,52 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
               })}
             </div>
           )}
+        </div>
+
+        {/* WHEN — default today, with quick taps for the last couple days + pick any date */}
+        <div style={{ marginBottom: 22 }}>
+          {label('When did you eat it?')}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {dayOptions.map(opt => {
+              const on = opt.value === dateStr;
+              return (
+                <div
+                  key={opt.value}
+                  onClick={() => { sfx.blip(); setDateStr(opt.value); }}
+                  style={{
+                    padding: '9px 13px',
+                    fontSize: 15,
+                    fontFamily: 'var(--font-body)',
+                    cursor: 'pointer',
+                    border: '2px solid ' + (on ? T.gold : T.line),
+                    background: on ? T.gold : 'transparent',
+                    color: on ? T.bg0 : T.muted,
+                    fontWeight: 700,
+                  }}
+                >
+                  {opt.label}
+                </div>
+              );
+            })}
+            <input
+              type="date"
+              max={todayStr}
+              value={dateStr}
+              onChange={e => { if (e.target.value) { sfx.blip(); setDateStr(e.target.value); } }}
+              style={{
+                padding: '8px 11px',
+                fontSize: 15,
+                fontFamily: 'var(--font-body)',
+                cursor: 'pointer',
+                border: '2px solid ' + (isCustomDate ? T.gold : T.line),
+                background: isCustomDate ? T.gold : 'transparent',
+                color: isCustomDate ? T.bg0 : T.muted,
+                colorScheme: 'dark',
+                outline: 'none',
+                fontWeight: 700,
+              }}
+            />
+          </div>
         </div>
 
         <button
