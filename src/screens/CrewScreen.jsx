@@ -5,6 +5,10 @@ import { colorOf, titleShadow } from '../lib/theme.js';
 export function CrewScreen({ theme, crew, feed, groupScore, todayCount }) {
   const T = theme;
   const ranked = [...crew].sort((a, b) => b.kebabs - a.kebabs);
+  // Ties are decided by kebab count alone — players level on kebabs share a place
+  // (standard competition ranking: 10/10/8 → 1, 1, 3). No streak/rating tiebreak,
+  // so co-first is a real outcome, not whoever happens to sort first.
+  const placeOf = i => ranked.filter(p => p.kebabs > ranked[i].kebabs).length + 1;
   const maxK = Math.max(1, ...crew.map(c => c.kebabs));
   // The crowned player (longest *active* streak). crewView only sets `king` once
   // someone actually has a streak, so the callout stays hidden on day one when
@@ -75,11 +79,11 @@ export function CrewScreen({ theme, crew, feed, groupScore, todayCount }) {
                   style={{
                     fontFamily: 'var(--font-display)',
                     fontSize: 13,
-                    color: i === 0 ? T.gold : T.muted,
+                    color: placeOf(i) === 1 ? T.gold : T.muted,
                     width: 22,
                   }}
                 >
-                  {i + 1}
+                  {placeOf(i)}
                 </span>
                 <span
                   style={{
