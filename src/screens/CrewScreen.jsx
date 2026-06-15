@@ -1,14 +1,13 @@
 import React from 'react';
 import { MonoIcon, Avatar } from '../lib/sprites.jsx';
 import { colorOf, titleShadow } from '../lib/theme.js';
+import { rankCrew, placeOf } from '../lib/ranking.js';
 
 export function CrewScreen({ theme, crew, feed, groupScore, todayCount }) {
   const T = theme;
-  const ranked = [...crew].sort((a, b) => b.kebabs - a.kebabs);
-  // Ties are decided by kebab count alone — players level on kebabs share a place
-  // (standard competition ranking: 10/10/8 → 1, 1, 3). No streak/rating tiebreak,
-  // so co-first is a real outcome, not whoever happens to sort first.
-  const placeOf = i => ranked.filter(p => p.kebabs > ranked[i].kebabs).length + 1;
+  // Ties share a place (decided by kebab count alone) with the current player
+  // floated to the top of their tie group — see lib/ranking.js.
+  const ranked = rankCrew(crew);
   const maxK = Math.max(1, ...crew.map(c => c.kebabs));
   // The crowned player (longest *active* streak). crewView only sets `king` once
   // someone actually has a streak, so the callout stays hidden on day one when
@@ -79,11 +78,11 @@ export function CrewScreen({ theme, crew, feed, groupScore, todayCount }) {
                   style={{
                     fontFamily: 'var(--font-display)',
                     fontSize: 13,
-                    color: placeOf(i) === 1 ? T.gold : T.muted,
+                    color: placeOf(ranked, i) === 1 ? T.gold : T.muted,
                     width: 22,
                   }}
                 >
-                  {placeOf(i)}
+                  {placeOf(ranked, i)}
                 </span>
                 <span
                   style={{
@@ -99,7 +98,7 @@ export function CrewScreen({ theme, crew, feed, groupScore, todayCount }) {
                   }}
                 >
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                  {p.king && <MonoIcon name="crown" size={12} color={T.gold} />}
+                  {(placeOf(ranked, i) === 1 || p.king) && <MonoIcon name="crown" size={12} color={T.gold} />}
                   {p.you && <span style={{ color: T.red, fontSize: 7 }}>P1</span>}
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>

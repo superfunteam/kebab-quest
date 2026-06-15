@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import { MonoIcon, Avatar } from '../lib/sprites.jsx';
 import { colorOf } from '../lib/theme.js';
 import { Panel } from '../components/Panel.jsx';
+import { rankCrew, placeOf } from '../lib/ranking.js';
 
 export function HQScreen({ theme, voice, crew, groupScore, todayCount, you, currentCity, currentCC, onTap, justScored }) {
   const T = theme;
   const V = voice;
-  const top3 = [...crew].sort((a, b) => b.kebabs - a.kebabs).slice(0, 3);
+  // Same tie rules as the POD screen: co-first on kebab count, current player on
+  // top of their tie group. Rank off the full pod, then take the top 3 to show.
+  const ranked = rankCrew(crew);
+  const top3 = ranked.slice(0, 3);
   const [press, setPress] = useState(false);
 
   return (
@@ -155,13 +159,13 @@ export function HQScreen({ theme, voice, crew, groupScore, todayCount, you, curr
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {top3.map((p, i) => (
             <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: 9, color: i === 0 ? T.gold : T.muted, width: 16 }}>
-                {i + 1}
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 9, color: placeOf(ranked, i) === 1 ? T.gold : T.muted, width: 16 }}>
+                {placeOf(ranked, i)}
               </span>
               <Avatar n={p.avatar} size={18} theme={T} borderColor={colorOf(T, p.color)} />
               <span style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: T.text, flex: 1, display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                {p.king && <MonoIcon name="crown" size={11} color={T.gold} />}
+                {(placeOf(ranked, i) === 1 || p.king) && <MonoIcon name="crown" size={11} color={T.gold} />}
               </span>
               <span style={{ fontFamily: 'var(--font-display)', fontSize: 11, color: colorOf(T, p.color) }}>
                 {p.kebabs}
