@@ -144,6 +144,7 @@ export default function App() {
     const word = c.n >= 2 ? 'COMBO x' + c.n : POW_WORDS[Math.floor(Math.random() * POW_WORDS.length)];
 
     const kebab = store.logKebab();
+    if (!kebab) return; // board frozen (trip over) — logKebab no-ops, nothing to score
     pendingKebabRef.current = kebab.id;
     setJustScored(now);
     setTimeout(() => setJustScored(0), 420);

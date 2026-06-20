@@ -81,9 +81,16 @@ export function useGameStore() {
   const [gameOver, setGameOver] = useState(isGameOver());
   useEffect(() => {
     if (gameOver) return;
-    const ms = GAME_END_TS - Date.now();
-    if (ms <= 0) { setGameOver(true); return; }
-    const t = setTimeout(() => setGameOver(true), Math.min(ms, 2 ** 31 - 1));
+    // setTimeout maxes out at a ~24.8-day delay, so for any far-off deadline we
+    // re-arm rather than fire early — the flag only flips once the clock has
+    // genuinely passed GAME_END_TS.
+    let t;
+    const arm = () => {
+      const ms = GAME_END_TS - Date.now();
+      if (ms <= 0) { setGameOver(true); return; }
+      t = setTimeout(arm, Math.min(ms, 2 ** 31 - 1));
+    };
+    arm();
     return () => clearTimeout(t);
   }, [gameOver]);
 
