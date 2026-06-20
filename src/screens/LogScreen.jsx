@@ -1,6 +1,7 @@
 import React from 'react';
 import { PixelStars, Avatar } from '../lib/sprites.jsx';
 import { colorOf, formatEuro, titleShadow } from '../lib/theme.js';
+import { whenFromTs } from '../lib/data.js';
 import { sfx } from '../lib/sound.js';
 import { isPhotoUrl } from '../lib/photos.js';
 
@@ -60,7 +61,7 @@ export function LogScreen({ theme, feed, crew, onSelect }) {
                     flexShrink: 0,
                   }}
                 >
-                  {f.when}
+                  {f.ts ? whenFromTs(f.ts) : f.when}
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7 }}>

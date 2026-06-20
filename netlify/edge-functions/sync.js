@@ -23,6 +23,16 @@ const MAX_TRIP_CODE = 24;
 const MAX_KEBABS_PER_REQUEST = 200;
 const MAX_HISTORY = 5000;
 
+// Hard end-of-trip cutoff, mirroring GAME_END_TS in src/lib/data.js (keep the
+// two in sync). Midnight Central as Monday begins (Jun 22, 2026); June is
+// daylight time in Chicago, so that's 05:00 UTC. After this instant the board is
+// frozen server-side too, so a stale client that never got the UI freeze can't
+// slip a late kebab into the shared log. GRACE_MS is a small clock-skew
+// tolerance at the boundary — offline-queued kebabs that were actually EATEN
+// before the deadline carry a pre-deadline ts and always sync in, however late.
+const GAME_END_TS = Date.parse('2026-06-22T00:00:00-05:00');
+const GRACE_MS = 5 * 60 * 1000;
+
 export default async (request, context) => {
   if (request.method !== 'POST') {
     return json({ error: 'method_not_allowed' }, 405);
@@ -95,6 +105,12 @@ export default async (request, context) => {
       // New ids inserted; existing ids replaced only when the incoming version is
       // newer (edits/deletes carry a higher updatedAt). Each gets the next seq.
       const prev = byId.get(k.id);
+      // Hard cutoff: once the trip's over, reject a BRAND-NEW kebab whose ts lands
+      // after the deadline (a stale client logging late). Edits/deletes of kebabs
+      // we already hold always pass — corrections and removals must survive — and
+      // a pre-deadline ts (offline queue) is always welcome, no matter when it
+      // arrives. We still ack it below so the offending client stops retrying.
+      if (!prev && k.ts > GAME_END_TS + GRACE_MS) continue;
       if (!prev || ver(k) > ver(prev)) {
         byId.set(k.id, { ...k, serverTs: seq++ });
         changed = true;

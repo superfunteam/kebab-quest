@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { KebabSprite, MonoIcon, PixelStars, Avatar } from '../lib/sprites.jsx';
 import { colorOf, titleShadow } from '../lib/theme.js';
+import { whenFromTs } from '../lib/data.js';
 import { sfx } from '../lib/sound.js';
 
 // How many unclaimed "upcoming" nodes to show above the latest kebab, like the
@@ -253,7 +254,7 @@ export function ChainScreen({ theme, voice, feed, crew, onSelect }) {
                   <PixelStars value={f.rating} size={9} color={T.gold} dim={T.surf2} />
                 </div>
                 <div style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: T.muted, marginTop: 4, opacity: 0.8 }}>
-                  {f.when}
+                  {f.ts ? whenFromTs(f.ts) : f.when}
                 </div>
               </div>
             </div>
