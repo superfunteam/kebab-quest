@@ -9,6 +9,7 @@ import { BootScreen } from './components/BootScreen.jsx';
 import { Onboarding } from './components/Onboarding.jsx';
 import { LogSheet } from './components/LogSheet.jsx';
 import { ConfirmEatModal } from './components/ConfirmEatModal.jsx';
+import { WinnerScreen } from './components/WinnerScreen.jsx';
 import { BottomNav } from './components/BottomNav.jsx';
 import { TweaksPanel } from './components/TweaksPanel.jsx';
 import { SyncBadge } from './components/SyncBadge.jsx';
@@ -33,6 +34,7 @@ export default function App() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [tweaksOpen, setTweaksOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [winnerOpen, setWinnerOpen] = useState(false);
   const [editingKebab, setEditingKebab] = useState(null);
   const pendingKebabRef = useRef(null);
   const comboRef = useRef({ n: 0, t: 0 });
@@ -95,6 +97,17 @@ export default function App() {
   // Keep the sound engine in step with the user's mute preference.
   useEffect(() => { sfx.setEnabled(store.settings.sound !== false); }, [store.settings.sound]);
 
+  // When the trip clock runs out, celebrate — once. After that the winner is a
+  // tap away from HQ (its EAT button is swapped for a results card), so we don't
+  // re-pop the overlay on every reload.
+  useEffect(() => {
+    if (store.phase === 'play' && store.gameOver && !read('winnerSeen', false)) {
+      setWinnerOpen(true);
+    }
+  }, [store.phase, store.gameOver]);
+
+  const closeWinner = () => { write('winnerSeen', true); setWinnerOpen(false); };
+
   // Tab switches get a snappy click-pop.
   const changeTab = (id) => { sfx.pop(); setTab(id); };
 
@@ -106,6 +119,9 @@ export default function App() {
 
   // First tap ever → make them confirm they really ate a kebab. After that, log directly.
   const handleTap = () => {
+    // Board's frozen once the trip is over — there's no EAT button anymore, but
+    // guard anyway and show the results instead.
+    if (store.gameOver) { setWinnerOpen(true); return; }
     if (!store.eatConfirmed) {
       setConfirmOpen(true);
       return;
@@ -270,6 +286,8 @@ export default function App() {
                   currentCC={currentCC}
                   onTap={handleTap}
                   justScored={justScored}
+                  gameOver={store.gameOver}
+                  onShowWinner={() => { sfx.pop(); setWinnerOpen(true); }}
                 />
               )}
               {tab === 'chain'  && <ChainScreen  theme={T} voice={V} feed={store.feed} crew={store.crew} onSelect={setEditingKebab} />}
@@ -353,6 +371,16 @@ export default function App() {
           onConfirm={handleConfirmEat}
           onCancel={() => setConfirmOpen(false)}
         />
+
+        {store.phase === 'play' && winnerOpen && (
+          <WinnerScreen
+            theme={T}
+            feed={store.feed}
+            crew={store.crew}
+            groupScore={store.groupScore}
+            onClose={closeWinner}
+          />
+        )}
 
         <InstallPrompt
           open={showInstall && store.phase === 'play'}

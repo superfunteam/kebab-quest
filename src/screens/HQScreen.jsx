@@ -4,7 +4,7 @@ import { colorOf } from '../lib/theme.js';
 import { Panel } from '../components/Panel.jsx';
 import { rankCrew, placeOf } from '../lib/ranking.js';
 
-export function HQScreen({ theme, voice, crew, groupScore, todayCount, you, currentCity, currentCC, onTap, justScored }) {
+export function HQScreen({ theme, voice, crew, groupScore, todayCount, you, currentCity, currentCC, onTap, justScored, gameOver, onShowWinner }) {
   const T = theme;
   const V = voice;
   // Same tie rules as the POD screen: co-first on kebab count, current player on
@@ -12,6 +12,10 @@ export function HQScreen({ theme, voice, crew, groupScore, todayCount, you, curr
   const ranked = rankCrew(crew);
   const top3 = ranked.slice(0, 3);
   const [press, setPress] = useState(false);
+
+  // Once the trip's over the EAT button is gone — swap in the champion(s).
+  const maxK = Math.max(0, ...crew.map(c => c.kebabs || 0));
+  const champions = maxK > 0 ? crew.filter(c => (c.kebabs || 0) === maxK) : [];
 
   return (
     <div style={{ padding: '6px 16px 0', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -78,7 +82,7 @@ export function HQScreen({ theme, voice, crew, groupScore, todayCount, you, curr
         </div>
       </Panel>
 
-      {/* THE BUTTON */}
+      {/* THE BUTTON — swapped for the winner card once the trip is over */}
       <div
         style={{
           flex: 1,
@@ -90,6 +94,63 @@ export function HQScreen({ theme, voice, crew, groupScore, todayCount, you, curr
           position: 'relative',
         }}
       >
+        {gameOver ? (
+          <button
+            onClick={onShowWinner}
+            style={{
+              width: '100%',
+              maxWidth: 300,
+              border: '3px solid ' + T.gold,
+              background: `repeating-linear-gradient(135deg, ${T.surf}, ${T.surf} 10px, ${T.surf2} 10px, ${T.surf2} 20px)`,
+              boxShadow: `0 6px 0 ${T.bg0}`,
+              cursor: 'pointer',
+              padding: '18px 16px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 9, color: T.red, letterSpacing: 2 }}>
+              ★ TRIP COMPLETE ★
+            </div>
+            <div style={{ animation: 'bob 1.8s ease-in-out infinite' }}>
+              <MonoIcon name="crown" size={40} color={T.gold} />
+            </div>
+            {champions.length > 0 ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  {champions.map(c => (
+                    <Avatar key={c.name} n={c.avatar} size={champions.length > 1 ? 44 : 56} theme={T} borderColor={T.gold} />
+                  ))}
+                </div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: T.text }}>
+                  {champions.map(c => c.name).join(' & ')}
+                </div>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: T.gold }}>
+                  CHAMPION{champions.length > 1 ? 'S' : ''} · {maxK} KEBABS
+                </div>
+              </>
+            ) : (
+              <div style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: T.muted }}>
+                The board stayed empty.
+              </div>
+            )}
+            <div
+              style={{
+                marginTop: 4,
+                fontFamily: 'var(--font-display)',
+                fontSize: 9,
+                color: T.green,
+                border: '2px solid ' + T.green,
+                padding: '8px 12px',
+              }}
+            >
+              VIEW RESULTS →
+            </div>
+          </button>
+        ) : (
+        <>
         <button
           onPointerDown={() => setPress(true)}
           onPointerUp={() => setPress(false)}
@@ -148,6 +209,8 @@ export function HQScreen({ theme, voice, crew, groupScore, todayCount, you, curr
         >
           {V.todayPrompt}
         </div>
+        </>
+        )}
       </div>
 
       {/* Crew leaderboard ticker */}

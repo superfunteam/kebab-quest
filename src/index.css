@@ -89,6 +89,20 @@ img, svg { image-rendering: pixelated; }
   0% { opacity: 0; }
   100% { opacity: 1; }
 }
+@keyframes confettiFall {
+  0% { transform: translateY(-12vh) rotate(0deg); opacity: 0; }
+  8% { opacity: 1; }
+  100% { transform: translateY(112vh) rotate(540deg); opacity: 1; }
+}
+@keyframes trophyBob {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-9px) rotate(2deg); }
+}
+@keyframes winnerPop {
+  0% { transform: scale(0.7); opacity: 0; }
+  60% { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
 
 .scanlines::after {
   content: '';

@@ -3,6 +3,19 @@ import { MonoIcon, PixelStars, Avatar } from '../lib/sprites.jsx';
 import { sfx } from '../lib/sound.js';
 import { isPhotoUrl, processAndUpload } from '../lib/photos.js';
 
+// A `datetime-local` input wants/yields wall-clock strings (YYYY-MM-DDTHH:MM) in
+// the browser's local zone — exactly the zone our ts/day-grid math runs in — so
+// we convert straight through local time, no UTC juggling.
+const pad = (n) => String(n).padStart(2, '0');
+function tsToLocalInput(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function localInputToTs(str) {
+  const t = new Date(str).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
 // Used for two flows that share the same form:
 //  - LOG (post-tap): a fresh kebab, fields blank → SAVE KEBAB / SKIP.
 //  - EDIT (tap a row in LOG/CHAIN): an existing kebab, fields pre-filled →
@@ -18,6 +31,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
   const [note, setNote] = useState('');
   const [cityField, setCityField] = useState('');
   const [ccField, setCcField] = useState('');
+  const [whenField, setWhenField] = useState(''); // datetime-local string
   const [photo, setPhoto] = useState(''); // URL string of the uploaded image, or ''
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState('');
@@ -35,6 +49,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
       setNote(editKebab.note || '');
       setCityField(editKebab.city || '');
       setCcField(editKebab.cc || '');
+      setWhenField(tsToLocalInput(editKebab.ts || Date.now()));
       // Only carry a real, shareable photo URL; drop legacy boolean flags.
       setPhoto(isPhotoUrl(editKebab.photo) ? editKebab.photo : '');
       setWho(editKebab.player || youName || '');
@@ -46,6 +61,7 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
       setNote('');
       setCityField('');
       setCcField('');
+      setWhenField(tsToLocalInput(Date.now()));
       setPhoto('');
       setWho(youName || (crew[0] && crew[0].name) || '');
     }
@@ -101,6 +117,14 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
       if (c) f.city = c;
       const cc = ccField.trim().toUpperCase();
       if (cc) f.cc = cc.slice(0, 3);
+    }
+    // Carry the (possibly back-dated) timestamp so the store can re-bucket the
+    // kebab and re-derive its "when" label. Only send it when it actually moved
+    // from what's stored, so an untouched edit doesn't needlessly bump the date.
+    const ts = localInputToTs(whenField);
+    if (ts != null) {
+      const origin = isEdit ? (editKebab.ts || 0) : null;
+      if (origin == null || Math.abs(ts - origin) >= 60000) f.ts = ts;
     }
     return f;
   };
@@ -273,6 +297,20 @@ export function LogSheet({ open, theme, city, crew = [], youName, editKebab = nu
           <div style={{ flex: 1 }}>
             {label('CC')}
             <input style={input} placeholder="—" maxLength={3} value={ccField} onChange={e => setCcField(e.target.value.toUpperCase())} />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          {label('When eaten')}
+          <input
+            type="datetime-local"
+            style={{ ...input, colorScheme: 'dark' }}
+            value={whenField}
+            max={tsToLocalInput(Date.now())}
+            onChange={e => { sfx.blip(); setWhenField(e.target.value); }}
+          />
+          <div style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: T.muted, marginTop: 7, opacity: 0.85 }}>
+            Forgot to log it? Set the day &amp; time it really happened.
           </div>
         </div>
 

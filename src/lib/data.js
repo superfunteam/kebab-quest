@@ -36,11 +36,37 @@ export const TRIP_LABEL = 'JUN 4 – JUN 21';
 
 export const FREEZES = 2;
 
+// ── Game over. Logging closes at midnight Central as Monday begins (the end of
+// the Jun 21 return day). June is daylight time in Chicago, so "midnight Monday
+// Central" is 05:00 UTC on Jun 22. Past this instant the chain is frozen — you
+// can still explore it, but no new kebabs go on the board and the winner is set.
+export const GAME_END_TS = Date.parse('2026-06-22T00:00:00-05:00');
+
+export function isGameOver(now = Date.now()) {
+  return now >= GAME_END_TS;
+}
+
 // The local calendar-day number for a timestamp (days since the epoch, local tz).
 export function localDayNum(ts) {
   const d = new Date(ts);
   d.setHours(0, 0, 0, 0);
   return Math.round(d.getTime() / 86400000);
+}
+
+// The human "when" label shown on the chain/log. Same-day kebabs read
+// "TODAY HH:MM" (the original format), yesterday reads "YESTERDAY HH:MM", and
+// anything older shows its weekday + date so a back-dated kebab is unambiguous.
+export function whenFromTs(ts) {
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  const day = localDayNum(ts);
+  const today = localDayNum(Date.now());
+  if (day === today) return 'TODAY ' + time;
+  if (day === today - 1) return 'YESTERDAY ' + time;
+  const date = d
+    .toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+    .toUpperCase();
+  return date + ' ' + time;
 }
 
 // Current streak for ANY player, derived purely from the shared feed: consecutive
@@ -89,6 +115,62 @@ export function buildDaysFromFeed(feed, name, frozenDays = [], tripDays = 14) {
     days.push({ count: ateByDay.get(d) || 0, frozen: frozen.has(d) });
   }
   return days;
+}
+
+// End-of-trip group stats for the winner screen. Pure: derives everything from
+// the (already visible/undeleted) feed plus the live crew view, so the results
+// match the leaderboard exactly. Returns champions (ties allowed), totals and a
+// handful of fun superlatives.
+export function computeGameStats(feed, crew) {
+  const kebabs = feed.filter(f => !f.deleted);
+  const total = kebabs.length;
+
+  // Champion(s): the crew member(s) with the most kebabs. Ties share the crown.
+  const maxK = Math.max(0, ...crew.map(c => c.kebabs || 0));
+  const champions = maxK > 0 ? crew.filter(c => (c.kebabs || 0) === maxK) : [];
+
+  const totalSpent = kebabs.reduce((s, f) => s + (f.price || 0), 0);
+  const rated = kebabs.filter(f => f.rating > 0);
+  const avgRating = rated.length ? rated.reduce((s, f) => s + f.rating, 0) / rated.length : 0;
+
+  // Unique cities (case-insensitive), ignoring blanks.
+  const citySet = new Set(kebabs.map(f => (f.city || '').trim().toLowerCase()).filter(Boolean));
+  const cities = citySet.size;
+
+  // Days the pod actually ate on.
+  const daySet = new Set(kebabs.filter(f => f.ts).map(f => localDayNum(f.ts)));
+  const daysEaten = daySet.size;
+
+  // Favourite meat across the whole trip.
+  const meatCount = {};
+  for (const f of kebabs) {
+    const m = f.meat || 'Chicken';
+    meatCount[m] = (meatCount[m] || 0) + 1;
+  }
+  let topMeat = null, topMeatN = 0;
+  for (const m in meatCount) if (meatCount[m] > topMeatN) { topMeat = m; topMeatN = meatCount[m]; }
+
+  // Busiest single day (most kebabs logged on one local calendar day).
+  const byDay = {};
+  for (const f of kebabs) {
+    if (!f.ts) continue;
+    const d = localDayNum(f.ts);
+    byDay[d] = (byDay[d] || 0) + 1;
+  }
+  let busiestDay = null, busiestN = 0;
+  for (const d in byDay) if (byDay[d] > busiestN) { busiestDay = Number(d); busiestN = byDay[d]; }
+  const busiestLabel = busiestDay != null
+    ? new Date(busiestDay * 86400000).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+    : '';
+
+  // Priciest single kebab + the highest-rated one (first 5★ if any).
+  const priciest = kebabs.reduce((best, f) => ((f.price || 0) > (best?.price || 0) ? f : best), null);
+  const topRated = [...rated].sort((a, b) => b.rating - a.rating)[0] || null;
+
+  return {
+    champions, maxK, total, totalSpent, avgRating, cities, daysEaten,
+    topMeat, topMeatN, busiestN, busiestLabel, priciest, topRated,
+  };
 }
 
 // Stats for the personal grid. cur uses the same today-or-yesterday rule as
