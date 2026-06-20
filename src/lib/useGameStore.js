@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { read, write, uuid } from './storage.js';
 import { syncOnce, mergeFeed, mergeClaims, mergeFrozen, sanitizeForSync, nextBackoff, resetTripServer } from './sync.js';
-import { DEFAULT_CREW, TRIP_CODE, TRIP_DAYS, FREEZES, streakFromFeed, buildDaysFromFeed, computeStreak, localDayNum } from './data.js';
+import { DEFAULT_CREW, TRIP_CODE, TRIP_DAYS, FREEZES, streakFromFeed, buildDaysFromFeed, computeStreak, localDayNum, whenFromTs, isGameOver, GAME_END_TS } from './data.js';
 import { isPhotoUrl } from './photos.js';
 
 // Defaults match the design's final state: Game Boy palette, clean LCD (no
@@ -75,6 +75,24 @@ export function useGameStore() {
   const [online, setOnline] = useState(navigator.onLine !== false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState(null);
+  // The trip's clock. Flips to true at GAME_END_TS; if the app is open across the
+  // deadline, a one-shot timer flips it live so the winner screen appears without
+  // a reload.
+  const [gameOver, setGameOver] = useState(isGameOver());
+  useEffect(() => {
+    if (gameOver) return;
+    // setTimeout maxes out at a ~24.8-day delay, so for any far-off deadline we
+    // re-arm rather than fire early — the flag only flips once the clock has
+    // genuinely passed GAME_END_TS.
+    let t;
+    const arm = () => {
+      const ms = GAME_END_TS - Date.now();
+      if (ms <= 0) { setGameOver(true); return; }
+      t = setTimeout(arm, Math.min(ms, 2 ** 31 - 1));
+    };
+    arm();
+    return () => clearTimeout(t);
+  }, [gameOver]);
 
   // ── persistence: every mutation drops to localStorage immediately
   // Block-bodied so the boolean return from write() isn't treated as a cleanup fn.
@@ -296,8 +314,9 @@ export function useGameStore() {
 
   // ── actions
   const logKebab = useCallback((partial) => {
+    // The board is frozen once the trip is over — no new kebabs go on the chain.
+    if (isGameOver()) return null;
     const now = Date.now();
-    const time = new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
     // Inherit the last logged city (you're probably still there), but never invent
     // a placeholder — no location until someone actually enters one.
     const last = visibleFeed.find(k => k.city);
@@ -314,7 +333,7 @@ export function useGameStore() {
       note: partial?.note || '',
       shop: partial?.shop || '',
       photo: isPhotoUrl(partial?.photo) ? partial.photo : '',
-      when: 'TODAY ' + time,
+      when: whenFromTs(now),
       ts: now,
       pending: true,
     };
@@ -335,9 +354,12 @@ export function useGameStore() {
       // these details would (a) never re-sync to the crew and (b) lose the merge to
       // the blank server copy on the next heartbeat — wiping everything the user typed.
       const next = { ...k, updatedAt: Date.now(), pending: true };
-      for (const key of ['rating', 'shop', 'meat', 'price', 'note', 'photo', 'city', 'cc']) {
+      for (const key of ['rating', 'shop', 'meat', 'price', 'note', 'photo', 'city', 'cc', 'ts']) {
         if (details[key] !== undefined) next[key] = details[key];
       }
+      // A changed date re-derives the human "when" label (and re-buckets the
+      // kebab in the streak/day grid, which both read from ts).
+      if (details.ts !== undefined) next.when = whenFromTs(next.ts);
       if (newPlayer && newPlayer !== k.player) {
         next.player = newPlayer;
         // Stamp the attributed player's OWN picked face — or leave it faceless
@@ -355,9 +377,12 @@ export function useGameStore() {
     setFeed(prev => prev.map(k => {
       if (k.id !== id) return k;
       const next = { ...k, updatedAt: Date.now(), pending: true };
-      for (const key of ['rating', 'shop', 'meat', 'price', 'note', 'photo', 'city', 'cc']) {
+      for (const key of ['rating', 'shop', 'meat', 'price', 'note', 'photo', 'city', 'cc', 'ts']) {
         if (fields[key] !== undefined) next[key] = fields[key];
       }
+      // A changed date re-derives the human "when" label (and re-buckets the
+      // kebab in the streak/day grid, which both read from ts).
+      if (fields.ts !== undefined) next.when = whenFromTs(next.ts);
       // Only touch the face if the kebab is being re-attributed to a different player.
       if (newPlayer && newPlayer !== k.player) {
         next.player = newPlayer;
@@ -470,7 +495,7 @@ export function useGameStore() {
   return {
     // state
     tripCode, settings, playerName, playerAvatar, feed: visibleFeed, crew: crewView, days, freezes, tripDays,
-    phase, online, syncing, syncError, eatConfirmed, claims,
+    phase, online, syncing, syncError, eatConfirmed, claims, gameOver,
     // derived
     groupScore, todayCount, you, youStreak,
     // actions
