@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useLayoutEffect } from 'react';
 import { MonoIcon, Avatar } from '../lib/sprites.jsx';
 import { colorOf, formatEuro, titleShadow } from '../lib/theme.js';
 import { computeGameStats } from '../lib/data.js';
@@ -15,9 +15,30 @@ export function WinnerScreen({ theme, feed, crew, groupScore, gameOver = false, 
   const { champions } = s;
   const tie = champions.length > 1;
   const has = s.total > 0;
-  const bigTitle = gameOver
-    ? (tie ? 'CO-CHAMPS!' : 'CHAMPION!')
-    : (tie ? 'ALL HAIL THE KEBAB KINGS' : 'ALL HAIL THE KEBAB KING');
+  // Pre-lock the leader headline breaks into two fixed lines and auto-sizes to
+  // fill the width (longest line decides the size, both lines share it, no extra
+  // wrapping). Post-lock keeps the short single-word champion title.
+  const kingLines = ['ALL HAIL', tie ? 'THE KEBAB KINGS' : 'THE KEBAB KING'];
+  const fitBoxRef = useRef(null);
+  const fitTextRef = useRef(null);
+  useLayoutEffect(() => {
+    if (gameOver) return;
+    const box = fitBoxRef.current, txt = fitTextRef.current;
+    if (!box || !txt) return;
+    const fit = () => {
+      txt.style.fontSize = '20px';
+      const avail = box.clientWidth;
+      const w = txt.scrollWidth;
+      if (!avail || !w) return;
+      // Scale the 20px measurement up to fill the width; cap so it never gets
+      // absurd on the wide (480px) desktop frame.
+      txt.style.fontSize = Math.max(12, Math.min(46, Math.floor(20 * avail / w))) + 'px';
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [gameOver, tie]);
 
   // A spray of pixel confetti — stable for the life of the overlay.
   const confetti = useMemo(() => {
@@ -111,19 +132,41 @@ export function WinnerScreen({ theme, feed, crew, groupScore, gameOver = false, 
           <MonoIcon name="crown" size={64} color={T.gold} />
         </div>
 
-        <div
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: bigTitle.length > 12 ? 19 : 28,
-            color: T.gold,
-            marginTop: 14,
-            letterSpacing: 1,
-            lineHeight: 1.4,
-            textShadow: titleShadow(T, 3),
-          }}
-        >
-          {bigTitle}
-        </div>
+        {gameOver ? (
+          <div
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 28,
+              color: T.gold,
+              marginTop: 14,
+              letterSpacing: 1,
+              lineHeight: 1.4,
+              textShadow: titleShadow(T, 3),
+            }}
+          >
+            {tie ? 'CO-CHAMPS!' : 'CHAMPION!'}
+          </div>
+        ) : (
+          <div ref={fitBoxRef} style={{ width: '100%', marginTop: 14 }}>
+            <div
+              ref={fitTextRef}
+              style={{
+                display: 'inline-block',
+                fontFamily: 'var(--font-display)',
+                fontSize: 28,
+                color: T.gold,
+                letterSpacing: 1,
+                lineHeight: 1.3,
+                textShadow: titleShadow(T, 3),
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {kingLines.map((l, i) => (
+                <div key={i}>{l}</div>
+              ))}
+            </div>
+          </div>
+        )}
         <div style={{ fontFamily: 'var(--font-body)', fontSize: 17, color: T.muted, marginTop: 10, letterSpacing: 1 }}>
           {has
             ? (gameOver ? 'MOST KEBABS ON THE TRIP' : 'MOST KEBABS SO FAR')
