@@ -15,6 +15,9 @@ export function WinnerScreen({ theme, feed, crew, groupScore, gameOver = false, 
   const { champions } = s;
   const tie = champions.length > 1;
   const has = s.total > 0;
+  const bigTitle = gameOver
+    ? (tie ? 'CO-CHAMPS!' : 'CHAMPION!')
+    : (tie ? 'ALL HAIL THE KEBAB KINGS' : 'ALL HAIL THE KEBAB KING');
 
   // A spray of pixel confetti — stable for the life of the overlay.
   const confetti = useMemo(() => {
@@ -111,14 +114,15 @@ export function WinnerScreen({ theme, feed, crew, groupScore, gameOver = false, 
         <div
           style={{
             fontFamily: 'var(--font-display)',
-            fontSize: 28,
+            fontSize: bigTitle.length > 12 ? 19 : 28,
             color: T.gold,
             marginTop: 14,
             letterSpacing: 1,
+            lineHeight: 1.4,
             textShadow: titleShadow(T, 3),
           }}
         >
-          {gameOver ? (tie ? 'CO-CHAMPS!' : 'CHAMPION!') : (tie ? 'TIED LEAD!' : 'IN THE LEAD!')}
+          {bigTitle}
         </div>
         <div style={{ fontFamily: 'var(--font-body)', fontSize: 17, color: T.muted, marginTop: 10, letterSpacing: 1 }}>
           {has
