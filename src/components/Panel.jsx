@@ -1,9 +1,10 @@
 import React from 'react';
 
-export function Panel({ theme, children, style, accent }) {
+export function Panel({ theme, children, style, accent, onClick }) {
   const T = theme;
   return (
     <div
+      onClick={onClick}
       style={{
         background: T.surf,
         border: '2px solid ' + (accent || T.line),
