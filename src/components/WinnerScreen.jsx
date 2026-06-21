@@ -9,11 +9,12 @@ import { sfx } from '../lib/sound.js';
 // the chain is frozen). Confetti + a big congrats for the kebab champion, plus a
 // grid of group stats and fun superlatives. Dismissible so the chain/log stay
 // explorable underneath.
-export function WinnerScreen({ theme, feed, crew, groupScore, onClose }) {
+export function WinnerScreen({ theme, feed, crew, groupScore, gameOver = false, onClose }) {
   const T = theme;
   const s = useMemo(() => computeGameStats(feed, crew), [feed, crew]);
   const { champions } = s;
   const tie = champions.length > 1;
+  const has = s.total > 0;
 
   // A spray of pixel confetti — stable for the life of the overlay.
   const confetti = useMemo(() => {
@@ -100,7 +101,7 @@ export function WinnerScreen({ theme, feed, crew, groupScore, onClose }) {
         }}
       >
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 9, color: T.red, letterSpacing: 2 }}>
-          ★ TRIP COMPLETE ★
+          {gameOver ? '★ TRIP COMPLETE ★' : '★ CURRENT STANDINGS ★'}
         </div>
 
         <div style={{ marginTop: 16, animation: 'trophyBob 2s ease-in-out infinite' }}>
@@ -117,10 +118,12 @@ export function WinnerScreen({ theme, feed, crew, groupScore, onClose }) {
             textShadow: titleShadow(T, 3),
           }}
         >
-          {tie ? 'CO-CHAMPS!' : 'CHAMPION!'}
+          {gameOver ? (tie ? 'CO-CHAMPS!' : 'CHAMPION!') : (tie ? 'TIED LEAD!' : 'IN THE LEAD!')}
         </div>
         <div style={{ fontFamily: 'var(--font-body)', fontSize: 17, color: T.muted, marginTop: 10, letterSpacing: 1 }}>
-          {s.total > 0 ? 'MOST KEBABS ON THE TRIP' : 'THE BOARD STAYED EMPTY'}
+          {has
+            ? (gameOver ? 'MOST KEBABS ON THE TRIP' : 'MOST KEBABS SO FAR')
+            : (gameOver ? 'THE BOARD STAYED EMPTY' : 'NO KEBABS YET — GET EATING')}
         </div>
 
         {/* champion card */}
@@ -162,7 +165,7 @@ export function WinnerScreen({ theme, feed, crew, groupScore, onClose }) {
         {/* group stats */}
         <div style={{ width: '100%', maxWidth: 360, marginTop: 26, textAlign: 'left' }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 9, color: T.gold, marginBottom: 12 }}>
-            ▶ THE FINAL TALLY
+            {gameOver ? '▶ THE FINAL TALLY' : '▶ THE TALLY SO FAR'}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
             {stat('coin', groupScore, 'POD SCORE', T.gold)}
@@ -210,10 +213,10 @@ export function WinnerScreen({ theme, feed, crew, groupScore, onClose }) {
             boxShadow: `0 5px 0 ${T.bg0}`,
           }}
         >
-          EXPLORE THE CHAIN →
+          {gameOver ? 'EXPLORE THE CHAIN →' : 'ADD A KEBAB →'}
         </button>
         <div style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: T.muted, marginTop: 14, opacity: 0.85 }}>
-          The board is frozen — but the memories live on.
+          {gameOver ? 'The board is frozen — but the memories live on.' : 'Standings so far — keep the chain going!'}
         </div>
       </div>
     </div>

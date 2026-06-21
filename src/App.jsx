@@ -97,16 +97,19 @@ export default function App() {
   // Keep the sound engine in step with the user's mute preference.
   useEffect(() => { sfx.setEnabled(store.settings.sound !== false); }, [store.settings.sound]);
 
-  // When the trip clock runs out, celebrate — once. After that the winner is a
-  // tap away from HQ (its EAT button is swapped for a results card), so we don't
-  // re-pop the overlay on every reload.
+  // The standings / winner screen is the landing view: it auto-opens once per
+  // app open (after boot + onboarding). Before the trip lock it's a live "current
+  // leader" preview you dismiss to keep logging; at game-end it becomes the final,
+  // locked result. Re-openable anytime from HQ.
+  const winnerAutoShownRef = useRef(false);
   useEffect(() => {
-    if (store.phase === 'play' && store.gameOver && !read('winnerSeen', false)) {
+    if (store.phase === 'play' && !winnerAutoShownRef.current) {
+      winnerAutoShownRef.current = true;
       setWinnerOpen(true);
     }
-  }, [store.phase, store.gameOver]);
+  }, [store.phase]);
 
-  const closeWinner = () => { write('winnerSeen', true); setWinnerOpen(false); };
+  const closeWinner = () => setWinnerOpen(false);
 
   // Tab switches get a snappy click-pop.
   const changeTab = (id) => { sfx.pop(); setTab(id); };
@@ -379,6 +382,7 @@ export default function App() {
             feed={store.feed}
             crew={store.crew}
             groupScore={store.groupScore}
+            gameOver={store.gameOver}
             onClose={closeWinner}
           />
         )}

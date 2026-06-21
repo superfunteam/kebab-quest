@@ -213,10 +213,12 @@ export function HQScreen({ theme, voice, crew, groupScore, todayCount, you, curr
         )}
       </div>
 
-      {/* Crew leaderboard ticker */}
-      <Panel theme={T} style={{ padding: '10px 12px', marginBottom: 14 }}>
+      {/* Crew leaderboard ticker — tap to open the full standings screen */}
+      <Panel theme={T} style={{ padding: '10px 12px', marginBottom: 14, cursor: onShowWinner ? 'pointer' : 'default' }} onClick={onShowWinner}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 8, color: T.muted }}>POD LEADERS</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 8, color: T.muted }}>
+            POD LEADERS{onShowWinner ? ' ▸ STANDINGS' : ''}
+          </div>
           <MonoIcon name="crown" size={14} color={T.gold} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
